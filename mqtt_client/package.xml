@@ -21,11 +21,13 @@
   <depend>mqtt_client_interfaces</depend>
   <depend>ros_environment</depend>
   <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
 
   <!-- ROS2 -->
   <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake</buildtool_depend>
   <depend condition="$ROS_VERSION == 2">libpaho-mqtt-dev</depend>
   <depend condition="$ROS_VERSION == 2">libpaho-mqttpp-dev</depend>
+  <depend condition="$ROS_VERSION == 2">nlohmann-json3-dev</depend>
   <depend condition="$ROS_VERSION == 2">rclcpp</depend>
   <depend condition="$ROS_VERSION == 2">rclcpp_components</depend>
   <depend condition="$ROS_VERSION == 2">rcpputils</depend>

@@ -32,6 +32,7 @@ SOFTWARE.
 #include <stdexcept>
 #include <vector>
 
+// clang-format off
 #include <mqtt_client/MqttClient.ros2.hpp>
 #include <mqtt_client_interfaces/msg/ros_msg_type.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
@@ -50,6 +51,17 @@ SOFTWARE.
 #include <std_msgs/msg/u_int32.hpp>
 #include <std_msgs/msg/u_int64.hpp>
 #include <std_msgs/msg/u_int8.hpp>
+#include <std_msgs/msg/header.hpp>
+
+#include <geometry_msgs/msg/quaternion.hpp>
+#include <geometry_msgs/msg/transform.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
+
+#include <nlohmann/json.hpp> 
+using json = nlohmann::json;
+// clang-format on
+
 RCLCPP_COMPONENTS_REGISTER_NODE(mqtt_client::MqttClient)
 
 
@@ -170,7 +182,67 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
 
       serializeRosMessage(msg, serialized_msg);
     } else {
-      throw std::domain_error("Unhandled message type (" + msg_type + ")");
+      json j_msg = json::parse(mqtt_msg->to_string());
+      // 各Keyが存在しない場合はデフォルト値を代入する
+      if (msg_type == "std_msgs/msg/Header") {
+        std_msgs::msg::Header msg;
+        msg.frame_id = j_msg["frame_id"].get<std::string>();
+        msg.stamp.sec = j_msg["stamp"]["sec"].get<int32_t>();
+        msg.stamp.nanosec = j_msg["stamp"]["nanosec"].get<uint32_t>();
+        serializeRosMessage(msg, serialized_msg);
+
+      } else if (msg_type == "std_msgs/msg/Transform") {
+        geometry_msgs::msg::Transform msg;
+        msg.translation.x = j_msg["translation"]["x"].get<float>();
+        msg.translation.y = j_msg["translation"]["y"].get<float>();
+        msg.translation.z = j_msg["translation"]["z"].get<float>();
+        msg.rotation.x = j_msg["rotation"]["x"].get<float>();
+        msg.rotation.y = j_msg["rotation"]["y"].get<float>();
+        msg.rotation.z = j_msg["rotation"]["z"].get<float>();
+        msg.rotation.w = j_msg["rotation"]["w"].get<float>();
+        serializeRosMessage(msg, serialized_msg);
+
+      } else if (msg_type == "std_msgs/msg/TransformStamped") {
+        geometry_msgs::msg::TransformStamped msg;
+        msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+        msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+        msg.header.stamp.nanosec =
+          j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+        msg.child_frame_id = j_msg["child_frame_id"].get<std::string>();
+        msg.transform.translation.x =
+          j_msg["transform"]["translation"]["x"].get<float>();
+        msg.transform.translation.y =
+          j_msg["transform"]["translation"]["y"].get<float>();
+        msg.transform.translation.z =
+          j_msg["transform"]["translation"]["z"].get<float>();
+        msg.transform.rotation.x =
+          j_msg["transform"]["rotation"]["x"].get<float>();
+        msg.transform.rotation.y =
+          j_msg["transform"]["rotation"]["y"].get<float>();
+        msg.transform.rotation.z =
+          j_msg["transform"]["rotation"]["z"].get<float>();
+        msg.transform.rotation.w =
+          j_msg["transform"]["rotation"]["w"].get<float>();
+        serializeRosMessage(msg, serialized_msg);
+
+      } else if (msg_type == "std_msgs/msg/Vector3") {
+        geometry_msgs::msg::Vector3 msg;
+        msg.x = j_msg["x"].get<float>();
+        msg.y = j_msg["y"].get<float>();
+        msg.z = j_msg["z"].get<float>();
+        serializeRosMessage(msg, serialized_msg);
+
+      } else if (msg_type == "std_msgs/msg/Quaternion") {
+        geometry_msgs::msg::Quaternion msg;
+        msg.x = j_msg["x"].get<float>();
+        msg.y = j_msg["y"].get<float>();
+        msg.z = j_msg["z"].get<float>();
+        msg.w = j_msg["w"].get<float>();
+        serializeRosMessage(msg, serialized_msg);
+
+      } else {
+        throw std::domain_error("Unhandled message type (" + msg_type + ")");
+      }
     }
 
     return true;
@@ -207,6 +279,10 @@ bool primitiveRosMessageToString(
     std_msgs::msg::String msg;
     deserializeRosMessage(*serialized_msg, msg);
     primitive = msg.data;
+  } else if (msg_type == "std_msgs/msg/Empty") {
+    std_msgs::msg::Empty msg;
+    deserializeRosMessage(*serialized_msg, msg);
+    primitive = std::string();
   } else if (msg_type == "std_msgs/msg/Bool") {
     std_msgs::msg::Bool msg;
     deserializeRosMessage(*serialized_msg, msg);
@@ -256,7 +332,58 @@ bool primitiveRosMessageToString(
     deserializeRosMessage(*serialized_msg, msg);
     primitive = std::to_string(msg.data);
   } else {
-    found_primitive = false;
+    json j_msg = json();
+    if (msg_type == "std_msgs/msg/Header") {
+      std_msgs::msg::Header msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["frame_id"] = msg.frame_id;
+      j_msg["stamp"]["sec"] = msg.stamp.sec;
+      j_msg["stamp"]["nanosec"] = msg.stamp.nanosec;
+    } else if (msg_type == "geometry_msgs/msg/Transform") {
+      geometry_msgs::msg::Transform msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["translation"]["x"] = msg.translation.x;
+      j_msg["translation"]["y"] = msg.translation.y;
+      j_msg["translation"]["z"] = msg.translation.z;
+      j_msg["rotation"]["x"] = msg.rotation.x;
+      j_msg["rotation"]["y"] = msg.rotation.y;
+      j_msg["rotation"]["z"] = msg.rotation.z;
+      j_msg["rotation"]["w"] = msg.rotation.w;
+    } else if (msg_type == "geometry_msgs/msg/TransformStamped") {
+      geometry_msgs::msg::TransformStamped msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["header"]["frame_id"] = msg.header.frame_id;
+      j_msg["header"]["stamp"]["sec"] = msg.header.stamp.sec;
+      j_msg["header"]["stamp"]["nanosec"] = msg.header.stamp.nanosec;
+      j_msg["child_frame_id"] = msg.child_frame_id;
+      j_msg["transform"]["translation"]["x"] = msg.transform.translation.x;
+      j_msg["transform"]["translation"]["y"] = msg.transform.translation.y;
+      j_msg["transform"]["translation"]["z"] = msg.transform.translation.z;
+      j_msg["transform"]["rotation"]["x"] = msg.transform.rotation.x;
+      j_msg["transform"]["rotation"]["y"] = msg.transform.rotation.y;
+      j_msg["transform"]["rotation"]["z"] = msg.transform.rotation.z;
+      j_msg["transform"]["rotation"]["w"] = msg.transform.rotation.w;
+
+    } else if (msg_type == "geometry_msgs/msg/Vector3") {
+      geometry_msgs::msg::Vector3 msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["x"] = msg.x;
+      j_msg["y"] = msg.y;
+      j_msg["z"] = msg.z;
+
+    } else if (msg_type == "geometry_msgs/msg/Quaternion") {
+      geometry_msgs::msg::Quaternion msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["x"] = msg.x;
+      j_msg["y"] = msg.y;
+      j_msg["z"] = msg.z;
+      j_msg["w"] = msg.w;
+    } else {
+      found_primitive = false;
+    }
+    if (found_primitive) {
+      primitive = j_msg.dump();
+    }
   }
 
   return found_primitive;
@@ -962,10 +1089,11 @@ void MqttClient::ros2mqtt(
     if (found_primitive) {
       payload_buffer = std::vector<uint8_t>(payload.begin(), payload.end());
     } else {
-      RCLCPP_WARN(get_logger(),
-                  "Cannot send ROS message of type '%s' as primitive message, "
-                  "check supported primitive types",
-                  ros_msg_type.name.c_str());
+      RCLCPP_WARN(
+        get_logger(),
+        "1. Cannot send ROS message of type '%s' as primitive message, "
+        "check supported primitive types",
+        ros_msg_type.name.c_str());
       return;
     }
 
