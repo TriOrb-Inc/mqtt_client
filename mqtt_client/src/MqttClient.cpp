@@ -36,6 +36,7 @@ SOFTWARE.
 #include <ros/message_traits.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Char.h>
+#include <std_msgs/Empty.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/Float64.h>
 #include <std_msgs/Int16.h>
@@ -85,6 +86,7 @@ const std::string MqttClient::kLatencyRosTopicPrefix = "latencies/";
  *   std_msgs/Int64
  *   std_msgs/Float32
  *   std_msgs/Float64
+ *   std_msgs/Empty
  *
  * @param [in]  msg        generic ShapeShifter ROS message
  * @param [out] primitive  string representation of primitive message data
@@ -100,6 +102,9 @@ bool primitiveRosMessageToString(const topic_tools::ShapeShifter::ConstPtr& msg,
 
   if (msg_type_md5 == ros::message_traits::MD5Sum<std_msgs::String>::value()) {
     primitive = msg->instantiate<std_msgs::String>()->data;
+  } else if (msg_type_md5 ==
+             ros::message_traits::MD5Sum<std_msgs::Empty>::value()) {
+    primitive = std::string();
   } else if (msg_type_md5 ==
              ros::message_traits::MD5Sum<std_msgs::Bool>::value()) {
     primitive = msg->instantiate<std_msgs::Bool>()->data ? "true" : "false";
@@ -679,6 +684,27 @@ void MqttClient::mqtt2primitive(mqtt::const_message_ptr mqtt_msg) {
   std::string msg_type_name;
   std::string msg_type_definition;
   std::vector<uint8_t> msg_buffer;
+
+  // check for empty
+  if (!found_primitive) {
+    std::string empty_str = str_msg;
+    std::transform(str_msg.cbegin(), str_msg.cend(), empty_str.begin(),
+                   ::tolower);
+    if (empty_str == "") {
+
+      // construct and serialize ROS message
+      std_msgs::Empty msg;
+      serializeRosMessage(msg, msg_buffer);
+
+      // collect ROS message type information
+      msg_type_md5 = ros::message_traits::MD5Sum<std_msgs::Empty>::value();
+      msg_type_name = ros::message_traits::DataType<std_msgs::Empty>::value();
+      msg_type_definition =
+        ros::message_traits::Definition<std_msgs::Empty>::value();
+
+      found_primitive = true;
+    }
+  }
 
   // check for bool
   if (!found_primitive) {

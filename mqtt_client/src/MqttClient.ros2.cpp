@@ -34,9 +34,11 @@ SOFTWARE.
 
 #include <mqtt_client/MqttClient.ros2.hpp>
 #include <mqtt_client_interfaces/msg/ros_msg_type.hpp>
+#include <rclcpp_components/register_node_macro.hpp>
 #include <rcpputils/env.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/char.hpp>
+#include <std_msgs/msg/empty.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/float64.hpp>
 #include <std_msgs/msg/int16.hpp>
@@ -48,8 +50,6 @@ SOFTWARE.
 #include <std_msgs/msg/u_int32.hpp>
 #include <std_msgs/msg/u_int64.hpp>
 #include <std_msgs/msg/u_int8.hpp>
-
-#include <rclcpp_components/register_node_macro.hpp>
 RCLCPP_COMPONENTS_REGISTER_NODE(mqtt_client::MqttClient)
 
 
@@ -103,6 +103,10 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
     if (msg_type == "std_msgs/msg/String") {
       std_msgs::msg::String msg;
       msg.data = mqtt_msg->to_string();
+
+      serializeRosMessage(msg, serialized_msg);
+    } else if (msg_type == "std_msgs/msg/Empty") {
+      std_msgs::msg::Empty msg;
 
       serializeRosMessage(msg, serialized_msg);
     } else if (msg_type == "std_msgs/msg/Bool") {
