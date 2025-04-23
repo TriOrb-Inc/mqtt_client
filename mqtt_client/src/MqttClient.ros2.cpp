@@ -2033,11 +2033,12 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
 
     return true;
 
-  } catch (const std::exception &) {
+  } catch (const std::exception& e) {
+    std::cerr << "Exception: " << e.what() << std::endl;
+    std::cerr << "Failed to deserialize message: " << msg_type << std::endl;
+    std::cerr << "Serialized message: " << mqtt_msg << std::endl;
     return false;
   }
-
-
 }
 
 /**
