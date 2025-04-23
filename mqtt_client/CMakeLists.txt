@@ -24,6 +24,7 @@ if(${ROS_VERSION} EQUAL 2)
   find_package(geometry_msgs REQUIRED)
   find_package(nlohmann_json REQUIRED)
 
+
   # Paho MQTT C++ apt package doesn't include CMake config
   # find_package(PahoMqttCpp REQUIRED)
   find_library(PahoMqttC_LIBRARY libpaho-mqtt3as.so.1 REQUIRED)
@@ -45,7 +46,6 @@ if(${ROS_VERSION} EQUAL 2)
     ${PahoMqttCpp_LIBRARY}
     nlohmann_json::nlohmann_json
   )
-
   ament_target_dependencies(${PROJECT_NAME}_lib
     fmt
     mqtt_client_interfaces
@@ -54,6 +54,30 @@ if(${ROS_VERSION} EQUAL 2)
     std_msgs
     geometry_msgs
   )
+  
+  # TriOrb
+  find_package(triorb_drive_interface)
+  find_package(triorb_cv_interface)
+  find_package(triorb_drive_interface)
+  find_package(triorb_field_interface)
+  find_package(triorb_project_interface)
+  find_package(triorb_sensor_interface)
+  find_package(triorb_static_interface)
+  find_package(triorb_slam_interface)
+  find_package(triorb_collaboration_interface)
+  if(triorb_drive_interface_FOUND)
+    add_definitions(-DHAVE_TRIORB_INTERFACE)
+    ament_target_dependencies(${PROJECT_NAME}_lib
+      triorb_drive_interface
+      triorb_cv_interface
+      triorb_field_interface
+      triorb_project_interface
+      triorb_sensor_interface
+      triorb_static_interface
+      triorb_slam_interface
+      triorb_collaboration_interface
+    )
+  endif()
 
   install(TARGETS ${PROJECT_NAME}_lib
     ARCHIVE DESTINATION lib
