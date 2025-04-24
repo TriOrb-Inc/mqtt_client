@@ -31,6 +31,7 @@ SOFTWARE.
 #include <map>
 #include <memory>
 #include <optional>
+#include <regex>
 #include <string>
 
 #define FMT_HEADER_ONLY
@@ -39,10 +40,11 @@ SOFTWARE.
 #include <mqtt_client_interfaces/srv/is_connected.hpp>
 #include <mqtt_client_interfaces/srv/new_mqtt2_ros_bridge.hpp>
 #include <mqtt_client_interfaces/srv/new_ros2_mqtt_bridge.hpp>
+#include <rclcpp/qos.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/serialization.hpp>
-#include <rclcpp/qos.hpp>
 #include <std_msgs/msg/float64.hpp>
+#include <std_msgs/msg/string.hpp>
 
 
 /**

@@ -106,6 +106,7 @@ SOFTWARE.
 #include <triorb_static_interface/msg/setting_ssid.hpp>
 #include <triorb_static_interface/msg/string_list.hpp>
 
+#define GET_TOPIC_NAME(s) std::regex_replace(std::string(getenv("ROS_PREFIX")) + std::string(s), std::regex("//"), "/")
 #endif //HAVE_TRIORB_INTERFACE
 
 #include <nlohmann/json.hpp> 
@@ -3879,7 +3880,6 @@ bool primitiveRosMessageToString(
     loadParameters();
     setup();
   }
-
 
   void MqttClient::loadParameters() {
 
