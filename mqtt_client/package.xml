@@ -40,6 +40,16 @@
   <depend condition="$ROS_VERSION == 1">roscpp</depend>
   <depend condition="$ROS_VERSION == 1">topic_tools</depend>
 
+  <!-- TriOrb -->
+  <depend>triorb_cv_interface</depend>
+  <depend>triorb_drive_interface</depend>
+  <depend>triorb_field_interface</depend>
+  <depend>triorb_project_interface</depend>
+  <depend>triorb_sensor_interface</depend>
+  <depend>triorb_static_interface</depend>
+  <depend>triorb_collaboration_interface</depend>
+  <depend>triorb_slam_interface</depend>
+
   <export>
     <build_type condition="$ROS_VERSION == 1">catkin</build_type>
     <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>

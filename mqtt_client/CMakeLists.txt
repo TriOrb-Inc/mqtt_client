@@ -56,28 +56,25 @@ if(${ROS_VERSION} EQUAL 2)
   )
   
   # TriOrb
-  find_package(triorb_drive_interface)
-  find_package(triorb_cv_interface)
-  find_package(triorb_drive_interface)
-  find_package(triorb_field_interface)
-  find_package(triorb_project_interface)
-  find_package(triorb_sensor_interface)
-  find_package(triorb_static_interface)
-  find_package(triorb_slam_interface)
-  find_package(triorb_collaboration_interface)
-  if(triorb_drive_interface_FOUND)
-    add_definitions(-DHAVE_TRIORB_INTERFACE)
-    ament_target_dependencies(${PROJECT_NAME}_lib
-      triorb_drive_interface
-      triorb_cv_interface
-      triorb_field_interface
-      triorb_project_interface
-      triorb_sensor_interface
-      triorb_static_interface
-      triorb_slam_interface
-      triorb_collaboration_interface
-    )
-  endif()
+  add_definitions(-DHAVE_TRIORB_INTERFACE)
+  find_package(triorb_drive_interface REQUIRED)
+  find_package(triorb_cv_interface REQUIRED)
+  find_package(triorb_field_interface REQUIRED)
+  find_package(triorb_project_interface REQUIRED)
+  find_package(triorb_sensor_interface REQUIRED)
+  find_package(triorb_static_interface REQUIRED)
+  find_package(triorb_slam_interface REQUIRED)
+  find_package(triorb_collaboration_interface REQUIRED)
+  ament_target_dependencies(${PROJECT_NAME}_lib
+    triorb_drive_interface
+    triorb_cv_interface
+    triorb_field_interface
+    triorb_project_interface
+    triorb_sensor_interface
+    triorb_static_interface
+    triorb_slam_interface
+    triorb_collaboration_interface
+  )
 
   install(TARGETS ${PROJECT_NAME}_lib
     ARCHIVE DESTINATION lib
