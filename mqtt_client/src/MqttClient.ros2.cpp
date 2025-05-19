@@ -52,6 +52,12 @@ SOFTWARE.
 #include <std_msgs/msg/u_int64.hpp>
 #include <std_msgs/msg/u_int8.hpp>
 #include <std_msgs/msg/header.hpp>
+#include <std_msgs/msg/int8_multi_array.hpp>
+#include <std_msgs/msg/u_int8_multi_array.hpp>
+#include <std_msgs/msg/int16_multi_array.hpp>
+#include <std_msgs/msg/u_int16_multi_array.hpp>
+#include <std_msgs/msg/int32_multi_array.hpp>
+#include <std_msgs/msg/u_int32_multi_array.hpp>
 
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/transform.hpp>
@@ -243,6 +249,66 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
           msg.stamp.nanosec = j_msg["stamp"]["nanosec"].get<uint32_t>();
           serializeRosMessage(msg, serialized_msg);
   
+        } else if (msg_type == "std_msgs/msg/Int8MultiArray") {
+          // layout非対応のため１回だけ警告を出す
+          RCLCPP_WARN_ONCE(
+            rclcpp::get_logger("mqtt_client"),
+            "Int8MultiArray layout is not supported. Only data is used.");
+          std_msgs::msg::Int8MultiArray msg;
+          for (const auto& data : j_msg["data"]) {
+            msg.data.push_back(data.get<int8_t>());
+          }
+          serializeRosMessage(msg, serialized_msg);
+        } else if (msg_type == "std_msgs/msg/UInt8MultiArray") {
+          // layout非対応のため１回だけ警告を出す
+          RCLCPP_WARN_ONCE(
+            rclcpp::get_logger("mqtt_client"),
+            "UInt8MultiArray layout is not supported. Only data is used.");
+          std_msgs::msg::UInt8MultiArray msg;
+          for (const auto& data : j_msg["data"]) {
+            msg.data.push_back(data.get<uint8_t>());
+          }
+          serializeRosMessage(msg, serialized_msg);
+        } else if (msg_type == "std_msgs/msg/Int16MultiArray") {
+          // layout非対応のため１回だけ警告を出す
+          RCLCPP_WARN_ONCE(
+            rclcpp::get_logger("mqtt_client"),
+            "Int16MultiArray layout is not supported. Only data is used.");
+          std_msgs::msg::Int16MultiArray msg;
+          for (const auto& data : j_msg["data"]) {
+            msg.data.push_back(data.get<int16_t>());
+          }
+          serializeRosMessage(msg, serialized_msg);
+        } else if (msg_type == "std_msgs/msg/UInt16MultiArray") {
+          // layout非対応のため１回だけ警告を出す
+          RCLCPP_WARN_ONCE(
+            rclcpp::get_logger("mqtt_client"),
+            "UInt16MultiArray layout is not supported. Only data is used.");
+          std_msgs::msg::UInt16MultiArray msg;
+          for (const auto& data : j_msg["data"]) {
+            msg.data.push_back(data.get<uint16_t>());
+          }
+          serializeRosMessage(msg, serialized_msg);
+        } else if (msg_type == "std_msgs/msg/Int32MultiArray") {
+          // layout非対応のため１回だけ警告を出す
+          RCLCPP_WARN_ONCE(
+            rclcpp::get_logger("mqtt_client"),
+            "Int32MultiArray layout is not supported. Only data is used.");
+          std_msgs::msg::Int32MultiArray msg;
+          for (const auto& data : j_msg["data"]) {
+            msg.data.push_back(data.get<int32_t>());
+          }
+          serializeRosMessage(msg, serialized_msg);
+        } else if (msg_type == "std_msgs/msg/UInt32MultiArray") {
+          // layout非対応のため１回だけ警告を出す
+          RCLCPP_WARN_ONCE(
+            rclcpp::get_logger("mqtt_client"),
+            "UInt32MultiArray layout is not supported. Only data is used.");
+          std_msgs::msg::UInt32MultiArray msg;
+          for (const auto& data : j_msg["data"]) {
+            msg.data.push_back(data.get<uint32_t>());
+          }
+          serializeRosMessage(msg, serialized_msg);
         } else if (msg_type == "std_msgs/msg/Transform") {
           geometry_msgs::msg::Transform msg;
           msg.translation.x = j_msg["translation"]["x"].get<float>();
@@ -2133,6 +2199,72 @@ bool primitiveRosMessageToString(
       j_msg["frame_id"] = msg.frame_id;
       j_msg["stamp"]["sec"] = msg.stamp.sec;
       j_msg["stamp"]["nanosec"] = msg.stamp.nanosec;
+    } else if (msg_type == "std_msgs/msg/Int8MultiArray") {
+      // layout非対応のため1回だけ警告を出す
+      RCLCPP_WARN_ONCE(
+        rclcpp::get_logger("mqtt_client"),
+        "std_msgs/msg/Int8MultiArray layout is not supported");
+      std_msgs::msg::Int8MultiArray msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["data"] = json::array();
+      for (const auto& data : msg.data) {
+        j_msg["data"].push_back(data);
+      }
+    } else if (msg_type == "std_msgs/msg/UInt8MultiArray") {
+      // layout非対応のため1回だけ警告を出す
+      RCLCPP_WARN_ONCE(
+        rclcpp::get_logger("mqtt_client"),
+        "std_msgs/msg/UInt8MultiArray layout is not supported");
+      std_msgs::msg::UInt8MultiArray msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["data"] = json::array();
+      for (const auto& data : msg.data) {
+        j_msg["data"].push_back(data);
+      }
+    } else if (msg_type == "std_msgs/msg/Int16MultiArray") {
+      // layout非対応のため1回だけ警告を出す
+      RCLCPP_WARN_ONCE(
+        rclcpp::get_logger("mqtt_client"),
+        "std_msgs/msg/Int16MultiArray layout is not supported");
+      std_msgs::msg::Int16MultiArray msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["data"] = json::array();
+      for (const auto& data : msg.data) {
+        j_msg["data"].push_back(data);
+      }
+    } else if (msg_type == "std_msgs/msg/UInt16MultiArray") {
+      // layout非対応のため1回だけ警告を出す
+      RCLCPP_WARN_ONCE(
+        rclcpp::get_logger("mqtt_client"),
+        "std_msgs/msg/UInt16MultiArray layout is not supported");
+      std_msgs::msg::UInt16MultiArray msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["data"] = json::array();
+      for (const auto& data : msg.data) {
+        j_msg["data"].push_back(data);
+      }
+    } else if (msg_type == "std_msgs/msg/Int32MultiArray") {
+      // layout非対応のため1回だけ警告を出す
+      RCLCPP_WARN_ONCE(
+        rclcpp::get_logger("mqtt_client"),
+        "std_msgs/msg/Int32MultiArray layout is not supported");
+      std_msgs::msg::Int32MultiArray msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["data"] = json::array();
+      for (const auto& data : msg.data) {
+        j_msg["data"].push_back(data);
+      }
+    } else if (msg_type == "std_msgs/msg/UInt32MultiArray") {
+      // layout非対応のため1回だけ警告を出す
+      RCLCPP_WARN_ONCE(
+        rclcpp::get_logger("mqtt_client"),
+        "std_msgs/msg/UInt32MultiArray layout is not supported");
+      std_msgs::msg::UInt32MultiArray msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["data"] = json::array();
+      for (const auto& data : msg.data) {
+        j_msg["data"].push_back(data);
+      }
     } else if (msg_type == "geometry_msgs/msg/Transform") {
       geometry_msgs::msg::Transform msg;
       deserializeRosMessage(*serialized_msg, msg);
