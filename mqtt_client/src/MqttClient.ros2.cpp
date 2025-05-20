@@ -2104,6 +2104,10 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
       }catch (const std::exception &e) {
         RCLCPP_ERROR(rclcpp::get_logger("mqtt_client"),
                      "Error parsing message: %s", e.what());
+#ifdef HAVE_TRIORB_INTERFACE
+        //std_msgs::msg::String _msg; _msg.data = "mqrr_client / Error parsing message";
+        //this->pub_except_error_str_add_->publish(_msg); // 
+#endif // HAVE_TRIORB_INTERFACE
         return false;
       }
     }
@@ -4316,6 +4320,10 @@ bool primitiveRosMessageToString(
             ros2mqtt.ros.qos.durability = {};
           } else {
             RCLCPP_ERROR(get_logger(), "Unexpected durability %s", p.c_str());
+#ifdef HAVE_TRIORB_INTERFACE
+            std_msgs::msg::String _msg; _msg.data = "mqrr_client / Unexpected durability";
+            this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
             exit(EXIT_FAILURE);
           }
         }
@@ -4338,6 +4346,10 @@ bool primitiveRosMessageToString(
             ros2mqtt.ros.qos.reliability = {};
           } else {
             RCLCPP_ERROR(get_logger(), "Unexpected reliability %s", p.c_str());
+#ifdef HAVE_TRIORB_INTERFACE
+            std_msgs::msg::String _msg; _msg.data = "mqrr_client / Unexpected reliability";
+            this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
             exit(EXIT_FAILURE);
           }
         }
@@ -4434,6 +4446,10 @@ bool primitiveRosMessageToString(
               rclcpp::DurabilityPolicy::TransientLocal;
           } else {
             RCLCPP_ERROR(get_logger(), "Unexpected durability %s", p.c_str());
+#ifdef HAVE_TRIORB_INTERFACE
+            std_msgs::msg::String _msg; _msg.data = "mqrr_client / Unexpected durability";
+            this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
             exit(EXIT_FAILURE);
           }
         }
@@ -4454,6 +4470,10 @@ bool primitiveRosMessageToString(
             mqtt2ros.ros.qos.reliability = rclcpp::ReliabilityPolicy::Reliable;
           } else {
             RCLCPP_ERROR(get_logger(), "Unexpected reliability %s", p.c_str());
+#ifdef HAVE_TRIORB_INTERFACE
+            std_msgs::msg::String _msg; _msg.data = "mqrr_client / Unexpected reliability";
+            this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
             exit(EXIT_FAILURE);
           }
         }
@@ -4490,6 +4510,10 @@ bool primitiveRosMessageToString(
     if (ros2mqtt_.empty() && mqtt2ros_.empty()) {
       RCLCPP_ERROR(get_logger(),
                    "No valid ROS-MQTT bridge found in parameter 'bridge'");
+#ifdef HAVE_TRIORB_INTERFACE
+      std_msgs::msg::String _msg; _msg.data = "mqtt_client / No valid ROS-MQTT bridge found in parameter 'bridge'";
+      this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
       exit(EXIT_FAILURE);
     }
   }
@@ -4696,6 +4720,10 @@ bool primitiveRosMessageToString(
         } catch (rclcpp::exceptions::RCLError& e) {
           RCLCPP_ERROR(get_logger(), "Failed to create generic subscriber: %s",
                        e.what());
+#ifdef HAVE_TRIORB_INTERFACE
+          std_msgs::msg::String _msg; _msg.data = "mqtt_client / Failed to create generic subscriber";
+          this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
           continue;
         }
       } else {
@@ -4728,6 +4756,10 @@ bool primitiveRosMessageToString(
           } catch (rclcpp::exceptions::RCLError& e) {
             RCLCPP_ERROR(get_logger(),
                          "Failed to create generic subscriber: %s", e.what());
+#ifdef HAVE_TRIORB_INTERFACE
+            std_msgs::msg::String _msg; _msg.data = "mqtt_client / Failed to create generic subscriber";
+            this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
             continue;
           }
         }
@@ -4755,6 +4787,10 @@ bool primitiveRosMessageToString(
       } catch (const rclcpp::exceptions::RCLError& e) {
         RCLCPP_ERROR(get_logger(), "Failed to create generic publisher: %s",
                      e.what());
+#ifdef HAVE_TRIORB_INTERFACE
+        std_msgs::msg::String _msg; _msg.data = "mqtt_client / Failed to create generic publisher";
+        this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
       }
     }
   }
@@ -4815,6 +4851,10 @@ bool primitiveRosMessageToString(
     } catch (const mqtt::exception& e) {
       RCLCPP_ERROR(get_logger(), "Client could not be initialized: %s",
                    e.what());
+#ifdef HAVE_TRIORB_INTERFACE
+      std_msgs::msg::String _msg; _msg.data = "mqtt_client / Client could not be initialized";
+      this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
       exit(EXIT_FAILURE);
     }
 
@@ -4836,6 +4876,10 @@ bool primitiveRosMessageToString(
       client_->connect(connect_options_, nullptr, *this);
     } catch (const mqtt::exception& e) {
       RCLCPP_ERROR(get_logger(), "Connection to broker failed: %s", e.what());
+#ifdef HAVE_TRIORB_INTERFACE
+      std_msgs::msg::String _msg; _msg.data = "mqtt_client / Connection to broker failed";
+      this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
       exit(EXIT_FAILURE);
     }
   }
@@ -5142,6 +5186,10 @@ bool primitiveRosMessageToString(
       } catch (rclcpp::exceptions::RCLError& e) {
         RCLCPP_ERROR(get_logger(), "Failed to create generic publisher: %s",
                      e.what());
+#ifdef HAVE_TRIORB_INTERFACE
+        std_msgs::msg::String _msg; _msg.data = "mqtt_client / Failed to create generic publisher";
+        this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
         return;
       }
       mqtt2ros.ros.is_stale = false;
@@ -5186,6 +5234,10 @@ bool primitiveRosMessageToString(
         } catch (const rclcpp::exceptions::RCLError& e) {
           RCLCPP_ERROR(get_logger(), "Failed to create generic publisher: %s",
                        e.what());
+#ifdef HAVE_TRIORB_INTERFACE
+          std_msgs::msg::String _msg; _msg.data = "mqtt_client / Failed to create generic publisher";
+          this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
           return;
         }
       }
@@ -5238,6 +5290,10 @@ bool primitiveRosMessageToString(
 
     RCLCPP_ERROR(get_logger(),
                  "Connection to broker lost, will try to reconnect...");
+#ifdef HAVE_TRIORB_INTERFACE
+    std_msgs::msg::String _msg; _msg.data = "mqtt_client / Connection to broker lost";
+    this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
     is_connected_ = false;
     connect();
   }
@@ -5389,17 +5445,27 @@ bool primitiveRosMessageToString(
           // service based bridge creation and the type name not matching means
           // the fixed type specified in the configuration does not match the
           // one we just recieved
-          if (ros_msg_type.name != mqtt2ros.ros.msg_type)
+          if (ros_msg_type.name != mqtt2ros.ros.msg_type){
             RCLCPP_ERROR(get_logger(),
                          "Unexpected type name received for topic %s (expected "
                          "%s but received %s)",
                          mqtt2ros.ros.topic.c_str(),
                          mqtt2ros.ros.msg_type.c_str(),
                          ros_msg_type.name.c_str());
-          if (mqtt2ros.ros.is_stale)
+#ifdef HAVE_TRIORB_INTERFACE
+            std_msgs::msg::String _msg; _msg.data = "mqtt_client / Unexpected type name received for topic";
+            this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
+          }
+          if (mqtt2ros.ros.is_stale){
             RCLCPP_ERROR(get_logger(),
                          "Topic %s has been unexpectedly marked stale",
                          mqtt2ros.ros.topic.c_str());
+#ifdef HAVE_TRIORB_INTERFACE
+            std_msgs::msg::String _msg; _msg.data = "mqtt_client / Topic has been unexpectedly marked stale";
+            this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
+          }
           return;
         }
 
@@ -5419,6 +5485,10 @@ bool primitiveRosMessageToString(
         } catch (rclcpp::exceptions::RCLError& e) {
           RCLCPP_ERROR(get_logger(), "Failed to create generic publisher: %s",
                        e.what());
+#ifdef HAVE_TRIORB_INTERFACE
+          std_msgs::msg::String _msg; _msg.data = "mqtt_client / Failed to create generic publisher";
+          this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
           return;
         }
         mqtt2ros.ros.is_stale = false;
@@ -5465,6 +5535,11 @@ bool primitiveRosMessageToString(
       "Connection to broker failed (return code %d), will automatically "
       "retry...",
       token.get_return_code());
+#ifdef HAVE_TRIORB_INTERFACE
+    std_msgs::msg::String _msg; _msg.data = "mqtt_client / Connection to broker failed, will automatically retry...";
+    this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
+
     is_connected_ = false;
   }
 
