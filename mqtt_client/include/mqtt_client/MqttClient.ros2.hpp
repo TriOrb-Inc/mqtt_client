@@ -46,6 +46,15 @@ SOFTWARE.
 #include <std_msgs/msg/float64.hpp>
 #include <std_msgs/msg/string.hpp>
 
+// ループバック防止
+#define MQTT_CLIENT_LOOPBACK_PROTECTION_MS 10
+#include <unordered_map>
+#include <mutex>
+#include <chrono>
+// ガード用のキャッシュ
+std::unordered_map<std::string, std::pair<std::string, std::chrono::steady_clock::time_point>> recent_ros_msgs_;
+std::mutex recent_ros_msgs_mutex_;
+
 
 /**
  * @brief Namespace for the mqtt_client package

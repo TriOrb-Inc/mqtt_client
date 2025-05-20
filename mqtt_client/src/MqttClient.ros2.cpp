@@ -4936,6 +4936,27 @@ bool primitiveRosMessageToString(
     // send ROS message to MQTT broker
     mqtt_topic = ros2mqtt.mqtt.topic;
     try {
+      // ループバック防止ガード
+      {
+        std::lock_guard<std::mutex> lock(recent_ros_msgs_mutex_);
+        auto it = recent_ros_msgs_.find(mqtt_topic);
+        std::string new_payload(payload_buffer.begin(), payload_buffer.end());
+        auto now = std::chrono::steady_clock::now();
+        if (it != recent_ros_msgs_.end()) {
+          const auto& [last_payload, timestamp] = it->second;
+          auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - timestamp);
+          if (elapsed.count() <= MQTT_CLIENT_LOOPBACK_PROTECTION_MS) {
+            if (last_payload == new_payload) {
+                RCLCPP_WARN(get_logger(), "Did not publish to '%s' to prevent loopback: consecutive identical messages on the same topic.", mqtt_topic.c_str());
+              return;
+            }
+          }
+          it->second = {new_payload, now};
+        }else{
+          recent_ros_msgs_[mqtt_topic] = {new_payload, now};
+        }
+      }
+
       RCLCPP_DEBUG(
         get_logger(),
         "Sending ROS message of type '%s' to MQTT broker on topic '%s' ...",
