@@ -23,11 +23,18 @@ _Node::_Node() : Node(GET_NODE_NAME(NODE_NAME)), node_name_(GET_NODE_NAME(NODE_N
      * Ping-pong topic for the ROS2
      * This is used to check if the connection is still alive
      */
-    this->pub_my_pong_ = this->create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/ros2/pong")), 1);
-    this->sub_ping_ = this->create_subscription<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/ros2/ping")), 1, std::bind(&_Node::callback_ping, this, std::placeholders::_1));
+    this->pub_my_pong_ = this->create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/ros2/pong")), rclcpp::SensorDataQoS());
+    this->sub_ping_ = this->create_subscription<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/ros2/ping")), rclcpp::SensorDataQoS(), std::bind(&_Node::callback_ping, this, std::placeholders::_1));
 #ifdef UNIQUE_NODE
     this->unique_check_timer_ = this->create_wall_timer(std::chrono::milliseconds(500), std::bind(&_Node::callback_unique_check, this));
 #endif
+
+    this->pub_except_node_registration_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/except_handl/node/add")), rclcpp::ParametersQoS());
+    this->pub_except_error_str_add_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/triorb/error/str/add")), rclcpp::ParametersQoS());
+    this->pub_except_warn_str_add_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/triorb/warn/str/add")), rclcpp::ParametersQoS());
+    std_msgs::msg::String msg;
+    msg.data = std::string("[instant]") + this->get_name();
+    pub_except_node_registration_->publish(msg);
 }
 
 void _Node::callback_ping(const std_msgs::msg::String::SharedPtr msg) {

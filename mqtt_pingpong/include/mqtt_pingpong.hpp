@@ -54,6 +54,14 @@ private:
     rclcpp::TimerBase::SharedPtr unique_check_timer_;
     void callback_unique_check();
 #endif
+
+    /**
+     * @brief TriOrb ExceptHandler
+     */
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_except_node_registration_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_except_error_str_add_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_except_warn_str_add_;
+    
 };
 
 #endif //__pingpong_HPP__

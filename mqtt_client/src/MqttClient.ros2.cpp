@@ -66,6 +66,11 @@ SOFTWARE.
 
 
 #ifdef HAVE_TRIORB_INTERFACE
+#include <string>
+#include <regex>
+#define GET_NODE_NAME(s) std::regex_replace(std::string(getenv("ROS_PREFIX")) + std::string("_") + std::string(s), std::regex("^_"), "")
+#define GET_TOPIC_NAME(s) std::regex_replace(std::string(getenv("ROS_PREFIX")) + std::string(s), std::regex("//"), "/")
+
 #include <triorb_collaboration_interface/msg/parent_bind.hpp>
 
 #include <triorb_cv_interface/msg/april_tag.hpp>
@@ -112,7 +117,6 @@ SOFTWARE.
 #include <triorb_static_interface/msg/setting_ssid.hpp>
 #include <triorb_static_interface/msg/string_list.hpp>
 
-#define GET_TOPIC_NAME(s) std::regex_replace(std::string(getenv("ROS_PREFIX")) + std::string(s), std::regex("//"), "/")
 #endif //HAVE_TRIORB_INTERFACE
 
 #include <nlohmann/json.hpp> 
@@ -4571,6 +4575,15 @@ bool primitiveRosMessageToString(
                         std::bind(&MqttClient::setupSubscriptions, this));
 
     setupPublishers();
+    
+#ifdef HAVE_TRIORB_INTERFACE
+    pub_except_node_registration_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/except_handl/node/add")), rclcpp::ParametersQoS());
+    pub_except_error_str_add_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/triorb/error/str/add")), rclcpp::ParametersQoS());
+    pub_except_warn_str_add_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/triorb/warn/str/add")), rclcpp::ParametersQoS());
+    std_msgs::msg::String msg;
+    msg.data = std::string("[instant]") + this->get_name();
+    pub_except_node_registration_->publish(msg);
+#endif
   }
 
   std::optional<rclcpp::QoS> MqttClient::getCompatibleQoS(

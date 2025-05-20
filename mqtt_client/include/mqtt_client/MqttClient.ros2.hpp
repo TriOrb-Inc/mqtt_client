@@ -569,6 +569,15 @@ class MqttClient : public rclcpp::Node,
    * Message length of a serialized `builtin_interfaces::msg::Time` message
    */
   uint32_t stamp_length_;
+
+#ifdef HAVE_TRIORB_INTERFACE
+  /**
+   * @brief TriOrb ExceptHandler
+   */
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_except_node_registration_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_except_error_str_add_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_except_warn_str_add_;
+#endif // HAVE_TRIORB_INTERFACE
 };
 
 
