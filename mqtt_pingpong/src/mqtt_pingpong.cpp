@@ -34,7 +34,7 @@ _Node::_Node() : Node(GET_NODE_NAME(NODE_NAME)), node_name_(GET_NODE_NAME(NODE_N
     this->pub_except_warn_str_add_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/triorb/warn/str/add")), rclcpp::ParametersQoS());
     std_msgs::msg::String msg;
     msg.data = std::string("[instant]") + this->get_name();
-    pub_except_node_registration_->publish(msg);
+    this->pub_except_node_registration_->publish(msg);
 }
 
 void _Node::callback_ping(const std_msgs::msg::String::SharedPtr msg) {
