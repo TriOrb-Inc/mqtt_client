@@ -52,6 +52,8 @@ void _Node::callback_unique_check()
     if (std::count(_available_nodes.begin(), _available_nodes.end(), std::string("/") + GET_NODE_NAME(NODE_NAME)) > 1)
     {
         std::cerr << "[Error] Multiple unique node (" << GET_NODE_NAME(NODE_NAME) << ") cannot be activated" << std::endl;
+        std_msgs::msg::String _msg; _msg.data = this->get_name() + std::string(" / ") + GET_NODE_NAME(NODE_NAME) + std::string(" is already activated");
+        this->pub_except_error_str_add_->publish(_msg);
         exit(-1);
     }
     this->unique_ok_count_++;
