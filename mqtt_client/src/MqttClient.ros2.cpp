@@ -4022,7 +4022,14 @@ bool primitiveRosMessageToString(
 
   MqttClient::MqttClient(const rclcpp::NodeOptions& options)
     : Node("mqtt_client", options) {
-
+#ifdef HAVE_TRIORB_INTERFACE
+    this->pub_except_node_registration_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/except_handl/node/add")), rclcpp::ParametersQoS());
+    this->pub_except_error_str_add_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/triorb/error/str/add")), rclcpp::ParametersQoS());
+    this->pub_except_warn_str_add_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/triorb/warn/str/add")), rclcpp::ParametersQoS());
+    std_msgs::msg::String msg;
+    msg.data = std::string("[instant]") + this->get_name();
+    this->pub_except_node_registration_->publish(msg);
+#endif
     loadParameters();
     setup();
   }
@@ -4599,15 +4606,6 @@ bool primitiveRosMessageToString(
                         std::bind(&MqttClient::setupSubscriptions, this));
 
     setupPublishers();
-    
-#ifdef HAVE_TRIORB_INTERFACE
-    this->pub_except_node_registration_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/except_handl/node/add")), rclcpp::ParametersQoS());
-    this->pub_except_error_str_add_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/triorb/error/str/add")), rclcpp::ParametersQoS());
-    this->pub_except_warn_str_add_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/triorb/warn/str/add")), rclcpp::ParametersQoS());
-    std_msgs::msg::String msg;
-    msg.data = std::string("[instant]") + this->get_name();
-    this->pub_except_node_registration_->publish(msg);
-#endif
   }
 
   std::optional<rclcpp::QoS> MqttClient::getCompatibleQoS(
