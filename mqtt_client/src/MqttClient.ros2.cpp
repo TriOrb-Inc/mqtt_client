@@ -4022,6 +4022,22 @@ bool primitiveRosMessageToString(
 
   MqttClient::MqttClient(const rclcpp::NodeOptions& options)
     : Node("mqtt_client", options) {
+      
+     this->sub_add_ros2mqtt_ = create_subscription<mqtt_client_interfaces::msg::Ros2MqttInterface>(
+        GET_TOPIC_NAME(std::string("/mqtt_bridg/ros2mqtt/add")), rclcpp::ParametersQoS(),
+        std::bind(&MqttClient::callback_add_ros2mqtt, this, std::placeholders::_1));
+      this->sub_add_mqtt2ros_ = create_subscription<mqtt_client_interfaces::msg::Mqtt2RosInterface>(
+        GET_TOPIC_NAME(std::string("/mqtt_bridg/mqtt2ros/add")), rclcpp::ParametersQoS(),
+        std::bind(&MqttClient::callback_add_mqtt2ros, this, std::placeholders::_1));
+      this->sub_remove_ros2mqtt_ = create_subscription<std_msgs::msg::String>(
+        GET_TOPIC_NAME(std::string("/mqtt_bridg/ros2mqtt/remove")), rclcpp::ParametersQoS(),
+        std::bind(&MqttClient::callback_remove_ros2mqtt, this, std::placeholders::_1));
+      this->sub_remove_mqtt2ros_ = create_subscription<std_msgs::msg::String>(
+        GET_TOPIC_NAME(std::string("/mqtt_bridg/mqtt2ros/remove")), rclcpp::ParametersQoS(),
+        std::bind(&MqttClient::callback_remove_mqtt2ros, this, std::placeholders::_1));
+      this->pub_edit_dynamic_mapping_result_ = create_publisher<std_msgs::msg::String>(
+        GET_TOPIC_NAME(std::string("/mqtt_bridg/edynamic_mapping/edit/result")), rclcpp::ParametersQoS());
+
 #ifdef HAVE_TRIORB_INTERFACE
     this->pub_except_node_registration_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/except_handl/node/add")), rclcpp::ParametersQoS());
     this->pub_except_error_str_add_ = create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string("/triorb/error/str/add")), rclcpp::ParametersQoS());
@@ -5002,7 +5018,7 @@ bool primitiveRosMessageToString(
           auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - timestamp);
           if (elapsed.count() <= MQTT_CLIENT_LOOPBACK_PROTECTION_MS) {
             if (last_payload == new_payload) {
-                RCLCPP_WARN(get_logger(), "Did not publish to '%s' to prevent loopback: consecutive identical messages on the same topic.", mqtt_topic.c_str());
+                //RCLCPP_WARN(get_logger(), "Did not publish to '%s' to prevent loopback: consecutive identical messages on the same topic.", mqtt_topic.c_str());
               return;
             }
           }
@@ -5386,6 +5402,129 @@ bool primitiveRosMessageToString(
     response->success = true;
   }
 
+  rclcpp::DurabilityPolicy convertStr2DurabilityPolicy(const std::string& durability_str) {
+    if (durability_str == "system_default") {
+      return rclcpp::DurabilityPolicy::SystemDefault;
+    } else if (durability_str == "volatile") {
+      return rclcpp::DurabilityPolicy::Volatile;
+    } else if (durability_str == "transient_local") {
+      return rclcpp::DurabilityPolicy::TransientLocal;
+    } else if (durability_str == "auto") {
+      return {};
+    } else {
+      throw std::runtime_error("Unexpected reliability " + durability_str);
+    }
+  }
+
+  rclcpp::ReliabilityPolicy convertStr2ReliabilityPolicy(const std::string& reliability_str) {
+    if (reliability_str == "system_default") {
+      return rclcpp::ReliabilityPolicy::SystemDefault;
+    } else if (reliability_str == "best_effort") {
+      return rclcpp::ReliabilityPolicy::BestEffort;
+    } else if (reliability_str == "reliable") {
+      return rclcpp::ReliabilityPolicy::Reliable;
+    } else if (reliability_str == "auto") {
+      return {};
+    } else {
+      throw std::runtime_error("Unexpected reliability " + reliability_str);
+    }
+  }
+  
+  
+  /**
+   * @brief ROS callback that dynamically creates an MQTT -> ROS mapping.
+   */
+  void MqttClient::callback_add_ros2mqtt(const mqtt_client_interfaces::msg::Ros2MqttInterface::SharedPtr msg) {
+    RCLCPP_INFO(get_logger(), "Add subscribed ROS topic '%s' of type '%s'",
+                msg->ros_topic.c_str(), msg->ros_msg_type.c_str());
+    std_msgs::msg::String _result_msg;
+    _result_msg.data = "add:ros2mqtt:"+msg->ros_topic + ":" + msg->mqtt_topic;
+    try {
+      if (ros2mqtt_.count(msg->ros_topic)==0){
+          Ros2MqttInterface ros2mqtt;
+          ros2mqtt.ros.is_stale = true;
+          ros2mqtt.ros.queue_size = msg->ros_queue_size;
+          ros2mqtt.ros.msg_type = msg->ros_msg_type;
+          ros2mqtt.mqtt.topic = msg->mqtt_topic;
+          ros2mqtt.mqtt.qos = msg->mqtt_qos;
+          ros2mqtt.mqtt.retained = msg->mqtt_retained;
+          ros2mqtt.primitive = msg->primitive;
+          ros2mqtt.stamped = msg->stamped;
+          ros2mqtt.ros.qos.durability = convertStr2DurabilityPolicy(msg->ros_qos_durability);
+          ros2mqtt.ros.qos.reliability = convertStr2ReliabilityPolicy(msg->ros_qos_reliability);
+          ros2mqtt_[msg->ros_topic] = ros2mqtt;
+          setupSubscriptions();
+          _result_msg.data += ":success";
+      }
+      else {
+        _result_msg.data += ":exists";
+      }
+    }
+    catch (const std::exception& e) {
+      RCLCPP_ERROR(get_logger(), "Failed to add ros2mqtt bridge: %s", e.what());
+      _result_msg.data += ":failure:" + std::string(e.what());
+    }
+    this->pub_edit_dynamic_mapping_result_->publish(_result_msg);
+  }
+
+  /**
+   * @brief ROS callback that dynamically creates a ROS -> MQTT mapping.
+   */
+  void MqttClient::callback_add_mqtt2ros(const mqtt_client_interfaces::msg::Mqtt2RosInterface::SharedPtr msg) {
+    RCLCPP_INFO(get_logger(), "Add subscribed MQTT topic '%s' of type '%s'",
+                msg->mqtt_topic.c_str(), msg->ros_msg_type.c_str());
+    
+    std_msgs::msg::String _result_msg;
+    _result_msg.data = "add:mqtt2ros:" + msg->mqtt_topic + ":" + msg->ros_topic;
+    try {
+      if (mqtt2ros_.count(msg->mqtt_topic)==0){
+        Mqtt2RosInterface mqtt2ros;
+        mqtt2ros.ros.is_stale = true;
+        mqtt2ros.ros.topic = msg->ros_topic;
+        mqtt2ros.ros.msg_type = msg->ros_msg_type;
+        mqtt2ros.ros.queue_size = msg->ros_queue_size;
+        mqtt2ros.ros.latched = msg->ros_latched;
+        mqtt2ros.mqtt.qos = msg->mqtt_qos;
+        mqtt2ros.fixed_type = msg->fixed_type;
+        mqtt2ros.primitive = msg->primitive;
+        mqtt2ros.stamped = msg->stamped;
+        mqtt2ros.ros.qos.durability = convertStr2DurabilityPolicy(msg->ros_qos_durability);
+        mqtt2ros.ros.qos.reliability = convertStr2ReliabilityPolicy(msg->ros_qos_reliability);
+        mqtt2ros_[msg->mqtt_topic] = mqtt2ros;
+        setupPublishers();
+        _result_msg.data += ":success";
+      }
+      else {
+        _result_msg.data += ":exists";
+      }
+    }
+    catch (const std::exception& e) {
+      RCLCPP_ERROR(get_logger(), "Failed to add mqtt2ros bridge: %s", e.what());
+      _result_msg.data += ":failure:" + std::string(e.what());
+    }
+    this->pub_edit_dynamic_mapping_result_->publish(_result_msg);
+  }
+
+  /**
+   * @brief ROS callback that removes a ROS -> MQTT mapping.
+   */
+  void MqttClient::callback_remove_ros2mqtt(const std_msgs::msg::String::SharedPtr msg) {
+    RCLCPP_INFO(get_logger(), "Received remove ros2mqtt bridge request for topic '%s'",
+                msg->data.c_str());
+    std_msgs::msg::String _result_msg;
+    this->pub_edit_dynamic_mapping_result_->publish(_result_msg);
+  }
+
+  /**
+   * @brief ROS callback that removes a MQTT -> ROS mapping.
+   */
+  void MqttClient::callback_remove_mqtt2ros(const std_msgs::msg::String::SharedPtr msg) {
+    RCLCPP_INFO(get_logger(), "Received remove mqtt2ros bridge request for topic '%s'",
+                msg->data.c_str());
+    std_msgs::msg::String _result_msg;
+    this->pub_edit_dynamic_mapping_result_->publish(_result_msg);
+  }
+
   void MqttClient::message_arrived(mqtt::const_message_ptr mqtt_msg) {
 
     // instantly take arrival timestamp
@@ -5540,5 +5679,5 @@ bool primitiveRosMessageToString(
 
     is_connected_ = false;
   }
-
+  
 }  // namespace mqtt_client

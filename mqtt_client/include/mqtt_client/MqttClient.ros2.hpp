@@ -40,6 +40,8 @@ SOFTWARE.
 #include <mqtt_client_interfaces/srv/is_connected.hpp>
 #include <mqtt_client_interfaces/srv/new_mqtt2_ros_bridge.hpp>
 #include <mqtt_client_interfaces/srv/new_ros2_mqtt_bridge.hpp>
+#include <mqtt_client_interfaces/msg/ros2_mqtt_interface.hpp>
+#include <mqtt_client_interfaces/msg/mqtt2_ros_interface.hpp>
 #include <rclcpp/qos.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/serialization.hpp>
@@ -352,6 +354,26 @@ class MqttClient : public rclcpp::Node,
     mqtt_client_interfaces::srv::NewMqtt2RosBridge::Response::SharedPtr response);
 
   /**
+   * @brief ROS callback that dynamically creates an MQTT -> ROS mapping.
+   */
+  void callback_add_ros2mqtt(const mqtt_client_interfaces::msg::Ros2MqttInterface::SharedPtr msg);
+
+  /**
+   * @brief ROS callback that dynamically creates a ROS -> MQTT mapping.
+   */
+  void callback_add_mqtt2ros(const mqtt_client_interfaces::msg::Mqtt2RosInterface::SharedPtr msg);
+
+  /**
+   * @brief ROS callback that removes a ROS -> MQTT mapping.
+   */
+  void callback_remove_ros2mqtt(const std_msgs::msg::String::SharedPtr msg);
+
+  /**
+   * @brief ROS callback that removes a MQTT -> ROS mapping.
+   */
+  void callback_remove_mqtt2ros(const std_msgs::msg::String::SharedPtr msg);
+
+  /**
    * @brief Callback for when the client receives a MQTT message from the
    * broker.
    *
@@ -529,6 +551,32 @@ class MqttClient : public rclcpp::Node,
    */
   rclcpp::Service<mqtt_client_interfaces::srv::NewMqtt2RosBridge>::SharedPtr
     new_mqtt2ros_bridge_service_;
+
+    
+  /**
+   * @brief ROS Topic subscriber for providing dynamic ROS to MQTT mappings.
+   */
+  rclcpp::Subscription<mqtt_client_interfaces::msg::Ros2MqttInterface>::SharedPtr sub_add_ros2mqtt_;
+
+  /**
+   * @brief ROS Topic subscriber for providing dynamic MQTT to ROS mappings.
+   */
+  rclcpp::Subscription<mqtt_client_interfaces::msg::Mqtt2RosInterface>::SharedPtr sub_add_mqtt2ros_;
+
+  /**
+   * @brief ROS Topic subscriber for removing dynamic ROS to MQTT mappings.
+   */
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_remove_ros2mqtt_;
+
+  /**
+   * @brief ROS Topic subscriber for removing dynamic MQTT to ROS mappings.
+   */
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_remove_mqtt2ros_;
+
+  /**
+   * @brief ROS Topic publisher for the result of dynamic mappings.
+   */
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_edit_dynamic_mapping_result_;
 
   /**
    * @brief Status variable keeping track of connection status to broker
