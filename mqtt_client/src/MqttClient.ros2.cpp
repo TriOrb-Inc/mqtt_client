@@ -5491,6 +5491,23 @@ bool primitiveRosMessageToString(
         mqtt2ros.ros.qos.durability = convertStr2DurabilityPolicy(msg->ros_qos_durability);
         mqtt2ros.ros.qos.reliability = convertStr2ReliabilityPolicy(msg->ros_qos_reliability);
         mqtt2ros_[msg->mqtt_topic] = mqtt2ros;
+        
+        if (!mqtt2ros.primitive) {
+          std::string const mqtt_topic_to_subscribe =
+            kRosMsgTypeMqttTopicPrefix + msg->mqtt_topic;
+          client_->subscribe(mqtt_topic_to_subscribe, mqtt2ros.mqtt.qos);
+          RCLCPP_INFO(get_logger(), "Subscribed MQTT topic '%s'",
+                      mqtt_topic_to_subscribe.c_str());
+        }
+        // If not primitive and not fixed, we need the message type before we can
+        // public. In that case wait for the type to come in before subscribing to
+        // the data topic
+        if (mqtt2ros.primitive || mqtt2ros.fixed_type) {
+          client_->subscribe(msg->mqtt_topic, mqtt2ros.mqtt.qos);
+          RCLCPP_INFO(get_logger(), "Subscribed MQTT topic '%s'",
+                      msg->mqtt_topic.c_str());
+        }
+
         setupPublishers();
         _result_msg.data += ":success";
       }
