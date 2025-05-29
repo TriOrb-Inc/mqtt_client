@@ -259,7 +259,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             rclcpp::get_logger("mqtt_client"),
             "Int8MultiArray layout is not supported. Only data is used.");
           std_msgs::msg::Int8MultiArray msg;
-          for (const auto& data : j_msg["data"]) {
+          for (const auto& data : j_msg.contains("data") ? j_msg["data"] : j_msg) {
             msg.data.push_back(data.get<int8_t>());
           }
           serializeRosMessage(msg, serialized_msg);
@@ -269,7 +269,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             rclcpp::get_logger("mqtt_client"),
             "UInt8MultiArray layout is not supported. Only data is used.");
           std_msgs::msg::UInt8MultiArray msg;
-          for (const auto& data : j_msg["data"]) {
+          for (const auto& data : j_msg.contains("data") ? j_msg["data"] : j_msg) {
             msg.data.push_back(data.get<uint8_t>());
           }
           serializeRosMessage(msg, serialized_msg);
@@ -279,7 +279,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             rclcpp::get_logger("mqtt_client"),
             "Int16MultiArray layout is not supported. Only data is used.");
           std_msgs::msg::Int16MultiArray msg;
-          for (const auto& data : j_msg["data"]) {
+          for (const auto& data : j_msg.contains("data") ? j_msg["data"] : j_msg) {
             msg.data.push_back(data.get<int16_t>());
           }
           serializeRosMessage(msg, serialized_msg);
@@ -289,7 +289,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             rclcpp::get_logger("mqtt_client"),
             "UInt16MultiArray layout is not supported. Only data is used.");
           std_msgs::msg::UInt16MultiArray msg;
-          for (const auto& data : j_msg["data"]) {
+          for (const auto& data : j_msg.contains("data") ? j_msg["data"] : j_msg) {
             msg.data.push_back(data.get<uint16_t>());
           }
           serializeRosMessage(msg, serialized_msg);
@@ -299,7 +299,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             rclcpp::get_logger("mqtt_client"),
             "Int32MultiArray layout is not supported. Only data is used.");
           std_msgs::msg::Int32MultiArray msg;
-          for (const auto& data : j_msg["data"]) {
+          for (const auto& data : j_msg.contains("data") ? j_msg["data"] : j_msg) {
             msg.data.push_back(data.get<int32_t>());
           }
           serializeRosMessage(msg, serialized_msg);
@@ -309,7 +309,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             rclcpp::get_logger("mqtt_client"),
             "UInt32MultiArray layout is not supported. Only data is used.");
           std_msgs::msg::UInt32MultiArray msg;
-          for (const auto& data : j_msg["data"]) {
+          for (const auto& data : j_msg.contains("data") ? j_msg["data"] : j_msg) {
             msg.data.push_back(data.get<uint32_t>());
           }
           serializeRosMessage(msg, serialized_msg);
