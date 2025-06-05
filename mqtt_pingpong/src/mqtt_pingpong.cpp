@@ -29,8 +29,8 @@ _Node::_Node() : Node(GET_NODE_NAME(NODE_NAME)), node_name_(GET_NODE_NAME(NODE_N
      * Ping-pong topic for the ROS2
      * This is used to check if the connection is still alive
      */
-    this->pub_my_pong_ = this->create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string(getenv("PING_PREFIX")) + std::string("/ros2/pong")), rclcpp::SensorDataQoS());
-    this->sub_ping_ = this->create_subscription<std_msgs::msg::String>(GET_TOPIC_NAME(std::string(getenv("PING_PREFIX")) + std::string("/ros2/ping")), rclcpp::SensorDataQoS(), std::bind(&_Node::callback_ping, this, std::placeholders::_1));
+    this->pub_my_pong_ = this->create_publisher<std_msgs::msg::String>(GET_TOPIC_NAME(std::string(getEnvOrDefault("PING_PREFIX","")) + std::string("/ros2/pong")), rclcpp::SensorDataQoS());
+    this->sub_ping_ = this->create_subscription<std_msgs::msg::String>(GET_TOPIC_NAME(std::string(getEnvOrDefault("PING_PREFIX","")) + std::string("/ros2/ping")), rclcpp::SensorDataQoS(), std::bind(&_Node::callback_ping, this, std::placeholders::_1));
 #ifdef UNIQUE_NODE
     this->unique_check_timer_ = this->create_wall_timer(std::chrono::milliseconds(500), std::bind(&_Node::callback_unique_check, this));
 #endif
