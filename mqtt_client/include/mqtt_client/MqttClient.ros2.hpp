@@ -49,7 +49,7 @@ SOFTWARE.
 #include <std_msgs/msg/string.hpp>
 
 // ループバック防止
-#define MQTT_CLIENT_LOOPBACK_PROTECTION_MS 10
+#define MQTT_CLIENT_LOOPBACK_PROTECTION_MS 90
 #include <unordered_map>
 #include <mutex>
 #include <chrono>
