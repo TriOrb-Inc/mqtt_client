@@ -64,6 +64,8 @@ SOFTWARE.
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 
+#include <sensor_msgs/msg/joy.hpp>
+
 
 #ifdef HAVE_TRIORB_INTERFACE
 #include <string>
@@ -249,8 +251,10 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         if (msg_type == "std_msgs/msg/Header") {
           std_msgs::msg::Header msg;
           msg.frame_id = j_msg["frame_id"].get<std::string>();
-          msg.stamp.sec = j_msg["stamp"]["sec"].get<int32_t>();
-          msg.stamp.nanosec = j_msg["stamp"]["nanosec"].get<uint32_t>();
+          if (j_msg.contains("stamp")) {
+            msg.stamp.sec = j_msg["stamp"]["sec"].get<int32_t>();
+            msg.stamp.nanosec = j_msg["stamp"]["nanosec"].get<uint32_t>();
+          }
           serializeRosMessage(msg, serialized_msg);
   
         } else if (msg_type == "std_msgs/msg/Int8MultiArray") {
@@ -313,53 +317,88 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             msg.data.push_back(data.get<uint32_t>());
           }
           serializeRosMessage(msg, serialized_msg);
-        } else if (msg_type == "std_msgs/msg/Transform") {
+        } else if (msg_type == "geometry_msgs/msg/Transform") {
           geometry_msgs::msg::Transform msg;
-          msg.translation.x = j_msg["translation"]["x"].get<float>();
-          msg.translation.y = j_msg["translation"]["y"].get<float>();
-          msg.translation.z = j_msg["translation"]["z"].get<float>();
-          msg.rotation.x = j_msg["rotation"]["x"].get<float>();
-          msg.rotation.y = j_msg["rotation"]["y"].get<float>();
-          msg.rotation.z = j_msg["rotation"]["z"].get<float>();
-          msg.rotation.w = j_msg["rotation"]["w"].get<float>();
+          if (j_msg.contains("translation")) {
+            msg.translation.x = j_msg["translation"]["x"].get<float>();
+            msg.translation.y = j_msg["translation"]["y"].get<float>();
+            msg.translation.z = j_msg["translation"]["z"].get<float>();
+          }
+          if (j_msg.contains("rotation")) {
+            msg.rotation.x = j_msg["rotation"]["x"].get<float>();
+            msg.rotation.y = j_msg["rotation"]["y"].get<float>();
+            msg.rotation.z = j_msg["rotation"]["z"].get<float>();
+            msg.rotation.w = j_msg["rotation"]["w"].get<float>();
+          }
           serializeRosMessage(msg, serialized_msg);
   
-        } else if (msg_type == "std_msgs/msg/TransformStamped") {
+        } else if (msg_type == "geometry_msgs/msg/TransformStamped") {
           geometry_msgs::msg::TransformStamped msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           msg.child_frame_id = j_msg["child_frame_id"].get<std::string>();
-          msg.transform.translation.x =
-            j_msg["transform"]["translation"]["x"].get<float>();
-          msg.transform.translation.y =
-            j_msg["transform"]["translation"]["y"].get<float>();
-          msg.transform.translation.z =
-            j_msg["transform"]["translation"]["z"].get<float>();
-          msg.transform.rotation.x =
-            j_msg["transform"]["rotation"]["x"].get<float>();
-          msg.transform.rotation.y =
-            j_msg["transform"]["rotation"]["y"].get<float>();
-          msg.transform.rotation.z =
-            j_msg["transform"]["rotation"]["z"].get<float>();
-          msg.transform.rotation.w =
-            j_msg["transform"]["rotation"]["w"].get<float>();
+          if (j_msg.contains("transform")) {
+            if (j_msg["transform"].contains("translation")) {
+              msg.transform.translation.x =
+                j_msg["transform"]["translation"]["x"].get<float>();
+              msg.transform.translation.y =
+                j_msg["transform"]["translation"]["y"].get<float>();
+              msg.transform.translation.z =
+                j_msg["transform"]["translation"]["z"].get<float>();
+            }
+            if (j_msg["transform"].contains("rotation")) {
+              msg.transform.rotation.x =
+                j_msg["transform"]["rotation"]["x"].get<float>();
+              msg.transform.rotation.y =
+                j_msg["transform"]["rotation"]["y"].get<float>();
+              msg.transform.rotation.z =
+                j_msg["transform"]["rotation"]["z"].get<float>();
+              msg.transform.rotation.w =
+                j_msg["transform"]["rotation"]["w"].get<float>();
+            }
+          }
           serializeRosMessage(msg, serialized_msg);
   
-        } else if (msg_type == "std_msgs/msg/Vector3") {
+        } else if (msg_type == "geometry_msgs/msg/Vector3") {
           geometry_msgs::msg::Vector3 msg;
           msg.x = j_msg["x"].get<float>();
           msg.y = j_msg["y"].get<float>();
           msg.z = j_msg["z"].get<float>();
           serializeRosMessage(msg, serialized_msg);
   
-        } else if (msg_type == "std_msgs/msg/Quaternion") {
+        } else if (msg_type == "geometry_msgs/msg/Quaternion") {
           geometry_msgs::msg::Quaternion msg;
           msg.x = j_msg["x"].get<float>();
           msg.y = j_msg["y"].get<float>();
           msg.z = j_msg["z"].get<float>();
           msg.w = j_msg["w"].get<float>();
+          serializeRosMessage(msg, serialized_msg);
+        } else if (msg_type == "sensor_msgs/msg/Joy"){
+          sensor_msgs::msg::Joy msg;
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
+          if (j_msg.contains("axes")) {
+            for (const auto& axis : j_msg["axes"]) {
+              msg.axes.push_back(axis.get<float>());
+            }
+          }
+          if (j_msg.contains("buttons")) {
+            for (const auto& button : j_msg["buttons"]) {
+              msg.buttons.push_back(button.get<uint8_t>());
+            }
+          }
           serializeRosMessage(msg, serialized_msg);
         }
   #ifdef HAVE_TRIORB_INTERFACE
@@ -379,11 +418,14 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_collaboration_interface/msg/ParentBind") {
           triorb_collaboration_interface::msg::ParentBind msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-          msg.parent = j_msg["parent"].get<std::string>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec = j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
+          //msg.parent = j_msg["parent"].get<std::string>();
           msg.you = j_msg["you"].get<std::string>();
           msg.x = j_msg["x"].get<float>();
           msg.y = j_msg["y"].get<float>();
@@ -410,16 +452,24 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_cv_interface/msg/AprilTag") {
           triorb_cv_interface::msg::AprilTag msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-          msg.position.x = j_msg["position"]["x"].get<float>();
-          msg.position.y = j_msg["position"]["y"].get<float>();
-          msg.position.z = j_msg["position"]["z"].get<float>();
-          msg.rotation.x = j_msg["rotation"]["x"].get<float>();
-          msg.rotation.y = j_msg["rotation"]["y"].get<float>();
-          msg.rotation.z = j_msg["rotation"]["z"].get<float>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
+          if (j_msg.contains("position")) {
+            msg.position.x = j_msg["position"]["x"].get<float>();
+            msg.position.y = j_msg["position"]["y"].get<float>();
+            msg.position.z = j_msg["position"]["z"].get<float>();
+          }
+          if (j_msg.contains("rotation")) {
+            msg.rotation.x = j_msg["rotation"]["x"].get<float>();
+            msg.rotation.y = j_msg["rotation"]["y"].get<float>();
+            msg.rotation.z = j_msg["rotation"]["z"].get<float>();
+          }
           for (const auto& corner : j_msg["corner2d"]) {
             geometry_msgs::msg::Vector3 point;
             point.x = corner["x"].get<float>();
@@ -474,24 +524,36 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_cv_interface/msg/AprilTagsInCam") {
           triorb_cv_interface::msg::AprilTagsInCam msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           for (const auto& tag : j_msg["tags"]) {
             triorb_cv_interface::msg::AprilTag tag_msg;
-            tag_msg.header.frame_id =
-              tag["header"]["frame_id"].get<std::string>();
-            tag_msg.header.stamp.sec =
-              tag["header"]["stamp"]["sec"].get<int32_t>();
-            tag_msg.header.stamp.nanosec =
-              tag["header"]["stamp"]["nanosec"].get<uint32_t>();
-            tag_msg.position.x = tag["position"]["x"].get<float>();
-            tag_msg.position.y = tag["position"]["y"].get<float>();
-            tag_msg.position.z = tag["position"]["z"].get<float>();
-            tag_msg.rotation.x = tag["rotation"]["x"].get<float>();
-            tag_msg.rotation.y = tag["rotation"]["y"].get<float>();
-            tag_msg.rotation.z = tag["rotation"]["z"].get<float>();
+            if (tag.contains("header")) {
+              tag_msg.header.frame_id =
+                tag["header"]["frame_id"].get<std::string>();
+              if (tag["header"].contains("stamp")) {
+                tag_msg.header.stamp.sec =
+                  tag["header"]["stamp"]["sec"].get<int32_t>();
+                tag_msg.header.stamp.nanosec =
+                  tag["header"]["stamp"]["nanosec"].get<uint32_t>();
+              }
+            }
+            if (tag.contains("position")) {
+              tag_msg.position.x = tag["position"]["x"].get<float>();
+              tag_msg.position.y = tag["position"]["y"].get<float>();
+              tag_msg.position.z = tag["position"]["z"].get<float>();
+            }
+            if (tag.contains("rotation")) {
+              tag_msg.rotation.x = tag["rotation"]["x"].get<float>();
+              tag_msg.rotation.y = tag["rotation"]["y"].get<float>();
+              tag_msg.rotation.z = tag["rotation"]["z"].get<float>();
+            }
             for (const auto& corner : tag["corner2d"]) {
               geometry_msgs::msg::Vector3 point;
               point.x = corner["x"].get<float>();
@@ -566,10 +628,14 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_cv_interface/msg/Detection") {
           triorb_cv_interface::msg::Detection msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           msg.det_num = j_msg["det_num"].get<uint32_t>();
           for (const auto& box : j_msg["boxes"]) {
             triorb_cv_interface::msg::BoundingBox box_msg;
@@ -706,10 +772,14 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_drive_interface/msg/MotorStatus") {
           triorb_drive_interface::msg::MotorStatus msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           msg.last_error_value = j_msg["last_error_value"].get<uint16_t>();
           msg.last_error_motor = j_msg["last_error_motor"].get<uint8_t>();
           msg.voltage = j_msg["voltage"].get<float>();
@@ -811,19 +881,23 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             position_msg.deg = position["deg"].get<float>();
             msg.position.push_back(position_msg);
           }
-          msg.speed.acc = j_msg["speed"]["acc"].get<uint32_t>();
-          msg.speed.dec = j_msg["speed"]["dec"].get<uint32_t>();
-          msg.speed.xy = j_msg["speed"]["xy"].get<float>();
-          msg.speed.w = j_msg["speed"]["w"].get<float>();
-          msg.setting.tx = j_msg["setting"]["tx"].get<float>();
-          msg.setting.ty = j_msg["setting"]["ty"].get<float>();
-          msg.setting.tr = j_msg["setting"]["tr"].get<float>();
-          msg.setting.force = j_msg["setting"]["force"].get<uint8_t>();
-          msg.setting.gain_no = j_msg["setting"]["gain_no"].get<uint8_t>();
-          for (const auto& disable_camera_idx :
-               j_msg["setting"]["disable_camera_idx"]) {
-            msg.setting.disable_camera_idx.push_back(
-              disable_camera_idx.get<uint8_t>());
+          if (j_msg.contains("speed")) {
+            msg.speed.acc = j_msg["speed"]["acc"].get<uint32_t>();
+            msg.speed.dec = j_msg["speed"]["dec"].get<uint32_t>();
+            msg.speed.xy = j_msg["speed"]["xy"].get<float>();
+            msg.speed.w = j_msg["speed"]["w"].get<float>();
+          }
+          if (j_msg.contains("setting")) {
+            msg.setting.tx = j_msg["setting"]["tx"].get<float>();
+            msg.setting.ty = j_msg["setting"]["ty"].get<float>();
+            msg.setting.tr = j_msg["setting"]["tr"].get<float>();
+            msg.setting.force = j_msg["setting"]["force"].get<uint8_t>();
+            msg.setting.gain_no = j_msg["setting"]["gain_no"].get<uint8_t>();
+            for (const auto& disable_camera_idx :
+                 j_msg["setting"]["disable_camera_idx"]) {
+              msg.setting.disable_camera_idx.push_back(
+                disable_camera_idx.get<uint8_t>());
+            }
           }
           serializeRosMessage(msg, serialized_msg);
         }
@@ -890,13 +964,17 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_drive_interface/msg/TriorbRunPos3") {
           triorb_drive_interface::msg::TriorbRunPos3 msg;
-          msg.speed.acc = j_msg["speed"]["acc"].get<uint32_t>();
-          msg.speed.dec = j_msg["speed"]["dec"].get<uint32_t>();
-          msg.speed.xy = j_msg["speed"]["xy"].get<float>();
-          msg.speed.w = j_msg["speed"]["w"].get<float>();
-          msg.position.x = j_msg["position"]["x"].get<float>();
-          msg.position.y = j_msg["position"]["y"].get<float>();
-          msg.position.deg = j_msg["position"]["deg"].get<float>();
+          if (j_msg.contains("speed")) {
+            msg.speed.acc = j_msg["speed"]["acc"].get<uint32_t>();
+            msg.speed.dec = j_msg["speed"]["dec"].get<uint32_t>();
+            msg.speed.xy = j_msg["speed"]["xy"].get<float>();
+            msg.speed.w = j_msg["speed"]["w"].get<float>();
+          }
+          if (j_msg.contains("position")) {
+            msg.position.x = j_msg["position"]["x"].get<float>();
+            msg.position.y = j_msg["position"]["y"].get<float>();
+            msg.position.deg = j_msg["position"]["deg"].get<float>();
+          }
           serializeRosMessage(msg, serialized_msg);
         }
         /*
@@ -928,9 +1006,11 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         else if (msg_type == "triorb_drive_interface/msg/TriorbRunResult") {
           triorb_drive_interface::msg::TriorbRunResult msg;
           msg.success = j_msg["success"].get<bool>();
-          msg.position.x = j_msg["position"]["x"].get<float>();
-          msg.position.y = j_msg["position"]["y"].get<float>();
-          msg.position.deg = j_msg["position"]["deg"].get<float>();
+          if (j_msg.contains("position")) {
+            msg.position.x = j_msg["position"]["x"].get<float>();
+            msg.position.y = j_msg["position"]["y"].get<float>();
+            msg.position.deg = j_msg["position"]["deg"].get<float>();
+          }
           serializeRosMessage(msg, serialized_msg);
         }
         /*
@@ -1005,13 +1085,17 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_drive_interface/msg/TriorbRunVel3") {
           triorb_drive_interface::msg::TriorbRunVel3 msg;
-          msg.speed.acc = j_msg["speed"]["acc"].get<uint32_t>();
-          msg.speed.dec = j_msg["speed"]["dec"].get<uint32_t>();
-          msg.speed.xy = j_msg["speed"]["xy"].get<float>();
-          msg.speed.w = j_msg["speed"]["w"].get<float>();
-          msg.velocity.vx = j_msg["velocity"]["vx"].get<float>();
-          msg.velocity.vy = j_msg["velocity"]["vy"].get<float>();
-          msg.velocity.vw = j_msg["velocity"]["vw"].get<float>();
+          if (j_msg.contains("speed")) {
+            msg.speed.acc = j_msg["speed"]["acc"].get<uint32_t>();
+            msg.speed.dec = j_msg["speed"]["dec"].get<uint32_t>();
+            msg.speed.xy = j_msg["speed"]["xy"].get<float>();
+            msg.speed.w = j_msg["speed"]["w"].get<float>();
+          }
+          if (j_msg.contains("velocity")) {
+            msg.velocity.vx = j_msg["velocity"]["vx"].get<float>();
+            msg.velocity.vy = j_msg["velocity"]["vy"].get<float>();
+            msg.velocity.vw = j_msg["velocity"]["vw"].get<float>();
+          }
           serializeRosMessage(msg, serialized_msg);
         }
         /*
@@ -1056,23 +1140,30 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
           triorb_drive_interface::msg::TriorbSetPath msg;
           for (const auto& path : j_msg["path"]) {
             triorb_drive_interface::msg::TriorbSetPos3 path_msg;
-            path_msg.pos.speed.acc = path["pos"]["speed"]["acc"].get<uint32_t>();
-            path_msg.pos.speed.dec = path["pos"]["speed"]["dec"].get<uint32_t>();
-            path_msg.pos.speed.xy = path["pos"]["speed"]["xy"].get<float>();
-            path_msg.pos.speed.w = path["pos"]["speed"]["w"].get<float>();
-            path_msg.pos.position.x = path["pos"]["position"]["x"].get<float>();
-            path_msg.pos.position.y = path["pos"]["position"]["y"].get<float>();
-            path_msg.pos.position.deg =
-              path["pos"]["position"]["deg"].get<float>();
-            path_msg.setting.tx = path["setting"]["tx"].get<float>();
-            path_msg.setting.ty = path["setting"]["ty"].get<float>();
-            path_msg.setting.tr = path["setting"]["tr"].get<float>();
-            path_msg.setting.force = path["setting"]["force"].get<uint8_t>();
-            path_msg.setting.gain_no = path["setting"]["gain_no"].get<uint8_t>();
-            for (const auto& disable_camera_idx :
-                 path["setting"]["disable_camera_idx"]) {
-              path_msg.setting.disable_camera_idx.push_back(
-                disable_camera_idx.get<uint8_t>());
+            if (path.contains("pos")) {
+              if (path["pos"].contains("speed")) {
+                path_msg.pos.speed.acc = path["pos"]["speed"]["acc"].get<uint32_t>();
+                path_msg.pos.speed.dec = path["pos"]["speed"]["dec"].get<uint32_t>();
+                path_msg.pos.speed.xy = path["pos"]["speed"]["xy"].get<float>();
+                path_msg.pos.speed.w = path["pos"]["speed"]["w"].get<float>();
+              }
+              if (path["pos"].contains("position")) {
+                path_msg.pos.position.x = path["pos"]["position"]["x"].get<float>();
+                path_msg.pos.position.y = path["pos"]["position"]["y"].get<float>();
+                path_msg.pos.position.deg = path["pos"]["position"]["deg"].get<float>();
+              }
+            }
+            if (path.contains("setting")) {
+              path_msg.setting.tx = path["setting"]["tx"].get<float>();
+              path_msg.setting.ty = path["setting"]["ty"].get<float>();
+              path_msg.setting.tr = path["setting"]["tr"].get<float>();
+              path_msg.setting.force = path["setting"]["force"].get<uint8_t>();
+              path_msg.setting.gain_no = path["setting"]["gain_no"].get<uint8_t>();
+              for (const auto& disable_camera_idx :
+                   path["setting"]["disable_camera_idx"]) {
+                path_msg.setting.disable_camera_idx.push_back(
+                  disable_camera_idx.get<uint8_t>());
+              }
             }
             msg.path.push_back(path_msg);
           }
@@ -1119,22 +1210,30 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_drive_interface/msg/TriorbSetPos3") {
           triorb_drive_interface::msg::TriorbSetPos3 msg;
-          msg.pos.speed.acc = j_msg["pos"]["speed"]["acc"].get<uint32_t>();
-          msg.pos.speed.dec = j_msg["pos"]["speed"]["dec"].get<uint32_t>();
-          msg.pos.speed.xy = j_msg["pos"]["speed"]["xy"].get<float>();
-          msg.pos.speed.w = j_msg["pos"]["speed"]["w"].get<float>();
-          msg.pos.position.x = j_msg["pos"]["position"]["x"].get<float>();
-          msg.pos.position.y = j_msg["pos"]["position"]["y"].get<float>();
-          msg.pos.position.deg = j_msg["pos"]["position"]["deg"].get<float>();
-          msg.setting.tx = j_msg["setting"]["tx"].get<float>();
-          msg.setting.ty = j_msg["setting"]["ty"].get<float>();
-          msg.setting.tr = j_msg["setting"]["tr"].get<float>();
-          msg.setting.force = j_msg["setting"]["force"].get<uint8_t>();
-          msg.setting.gain_no = j_msg["setting"]["gain_no"].get<uint8_t>();
-          for (const auto& disable_camera_idx :
-               j_msg["setting"]["disable_camera_idx"]) {
-            msg.setting.disable_camera_idx.push_back(
-              disable_camera_idx.get<uint8_t>());
+          if (j_msg.contains("pos")) {
+            if (j_msg["pos"].contains("speed")) {
+              msg.pos.speed.acc = j_msg["pos"]["speed"]["acc"].get<uint32_t>();
+              msg.pos.speed.dec = j_msg["pos"]["speed"]["dec"].get<uint32_t>();
+              msg.pos.speed.xy = j_msg["pos"]["speed"]["xy"].get<float>();
+              msg.pos.speed.w = j_msg["pos"]["speed"]["w"].get<float>();
+            }
+            if (j_msg["pos"].contains("position")) {
+              msg.pos.position.x = j_msg["pos"]["position"]["x"].get<float>();
+              msg.pos.position.y = j_msg["pos"]["position"]["y"].get<float>();
+              msg.pos.position.deg = j_msg["pos"]["position"]["deg"].get<float>();
+            }
+          }
+          if (j_msg.contains("setting")) {
+            msg.setting.tx = j_msg["setting"]["tx"].get<float>();
+            msg.setting.ty = j_msg["setting"]["ty"].get<float>();
+            msg.setting.tr = j_msg["setting"]["tr"].get<float>();
+            msg.setting.force = j_msg["setting"]["force"].get<uint8_t>();
+            msg.setting.gain_no = j_msg["setting"]["gain_no"].get<uint8_t>();
+            for (const auto& disable_camera_idx :
+                 j_msg["setting"]["disable_camera_idx"]) {
+              msg.setting.disable_camera_idx.push_back(
+                disable_camera_idx.get<uint8_t>());
+            }
           }
           serializeRosMessage(msg, serialized_msg);
         }
@@ -1271,10 +1370,14 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_sensor_interface/msg/CameraDevice") {
           triorb_sensor_interface::msg::CameraDevice msg;
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           msg.device = j_msg["device"].get<std::string>();
           msg.topic = j_msg["topic"].get<std::string>();
           msg.id = j_msg["id"].get<std::string>();
@@ -1321,10 +1424,14 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_sensor_interface/msg/DistanceSensor") {
           triorb_sensor_interface::msg::DistanceSensor msg;
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           msg.distance = j_msg["distance"].get<float>();
           msg.confidence = j_msg["confidence"].get<uint8_t>();
           msg.hfov = j_msg["hfov"].get<float>();
@@ -1370,10 +1477,14 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_sensor_interface/msg/ImuSensor") {
           triorb_sensor_interface::msg::ImuSensor msg;
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           msg.yaw = j_msg["yaw"].get<float>();
           msg.pitch = j_msg["pitch"].get<float>();
           msg.roll = j_msg["roll"].get<float>();
@@ -1411,10 +1522,14 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_sensor_interface/msg/Obstacles") {
           triorb_sensor_interface::msg::Obstacles msg;
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           msg.forward = j_msg["forward"].get<float>();
           msg.left = j_msg["left"].get<float>();
           msg.right = j_msg["right"].get<float>();
@@ -1458,18 +1573,26 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_slam_interface/msg/CamerasLandmarkInfo") {
           triorb_slam_interface::msg::CamerasLandmarkInfo msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           for (const auto& camera : j_msg["camera"]) {
             triorb_slam_interface::msg::PointArrayStamped camera_msg;
-            camera_msg.header.frame_id =
-              camera["header"]["frame_id"].get<std::string>();
-            camera_msg.header.stamp.sec =
-              camera["header"]["stamp"]["sec"].get<int32_t>();
-            camera_msg.header.stamp.nanosec =
-              camera["header"]["stamp"]["nanosec"].get<uint32_t>();
+            if (camera.contains("header")) {
+              camera_msg.header.frame_id =
+                camera["header"]["frame_id"].get<std::string>();
+              if (camera["header"].contains("stamp")) {
+                camera_msg.header.stamp.sec =
+                  camera["header"]["stamp"]["sec"].get<int32_t>();
+                camera_msg.header.stamp.nanosec =
+                  camera["header"]["stamp"]["nanosec"].get<uint32_t>();
+              }
+            }
             for (const auto& point : camera["points"]) {
               geometry_msgs::msg::Point point_msg;
               point_msg.x = point["x"].get<double>();
@@ -1525,32 +1648,39 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_slam_interface/msg/CamerasPose") {
           triorb_slam_interface::msg::CamerasPose msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           for (const auto& camera : j_msg["camera"]) {
             triorb_slam_interface::msg::PoseDevStamped camera_msg;
-            camera_msg.header.frame_id =
-              camera["header"]["frame_id"].get<std::string>();
-            camera_msg.header.stamp.sec =
-              camera["header"]["stamp"]["sec"].get<int32_t>();
-            camera_msg.header.stamp.nanosec =
-              camera["header"]["stamp"]["nanosec"].get<uint32_t>();
-            camera_msg.pose.position.x =
-              camera["pose"]["position"]["x"].get<double>();
-            camera_msg.pose.position.y =
-              camera["pose"]["position"]["y"].get<double>();
-            camera_msg.pose.position.z =
-              camera["pose"]["position"]["z"].get<double>();
-            camera_msg.pose.orientation.x =
-              camera["pose"]["orientation"]["x"].get<double>();
-            camera_msg.pose.orientation.y =
-              camera["pose"]["orientation"]["y"].get<double>();
-            camera_msg.pose.orientation.z =
-              camera["pose"]["orientation"]["z"].get<double>();
-            camera_msg.pose.orientation.w =
-              camera["pose"]["orientation"]["w"].get<double>();
+            if (camera.contains("header")) {
+              camera_msg.header.frame_id =
+                camera["header"]["frame_id"].get<std::string>();
+              if (camera["header"].contains("stamp")) {
+                camera_msg.header.stamp.sec =
+                  camera["header"]["stamp"]["sec"].get<int32_t>();
+                camera_msg.header.stamp.nanosec =
+                  camera["header"]["stamp"]["nanosec"].get<uint32_t>();
+              }
+            }
+            if (camera.contains("pose")) {
+              if (camera["pose"].contains("position")) {
+                camera_msg.pose.position.x = camera["pose"]["position"]["x"].get<double>();
+                camera_msg.pose.position.y = camera["pose"]["position"]["y"].get<double>();
+                camera_msg.pose.position.z = camera["pose"]["position"]["z"].get<double>();
+              }
+              if (camera["pose"].contains("orientation")) {
+                camera_msg.pose.orientation.x = camera["pose"]["orientation"]["x"].get<double>();
+                camera_msg.pose.orientation.y = camera["pose"]["orientation"]["y"].get<double>();
+                camera_msg.pose.orientation.z = camera["pose"]["orientation"]["z"].get<double>();
+                camera_msg.pose.orientation.w = camera["pose"]["orientation"]["w"].get<double>();
+              }
+            }
             camera_msg.valid = camera["valid"].get<bool>();
             msg.camera.push_back(camera_msg);
           }
@@ -1587,10 +1717,14 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_slam_interface/msg/PointArrayStamped") {
           triorb_slam_interface::msg::PointArrayStamped msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           for (const auto& point : j_msg["points"]) {
             geometry_msgs::msg::Point point_msg;
             point_msg.x = point["x"].get<double>();
@@ -1638,21 +1772,27 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_slam_interface/msg/PoseDevStamped") {
           triorb_slam_interface::msg::PoseDevStamped msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-          msg.pose.position.x = j_msg["pose"]["position"]["x"].get<double>();
-          msg.pose.position.y = j_msg["pose"]["position"]["y"].get<double>();
-          msg.pose.position.z = j_msg["pose"]["position"]["z"].get<double>();
-          msg.pose.orientation.x =
-            j_msg["pose"]["orientation"]["x"].get<double>();
-          msg.pose.orientation.y =
-            j_msg["pose"]["orientation"]["y"].get<double>();
-          msg.pose.orientation.z =
-            j_msg["pose"]["orientation"]["z"].get<double>();
-          msg.pose.orientation.w =
-            j_msg["pose"]["orientation"]["w"].get<double>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
+          if (j_msg.contains("pose")) {
+            if (j_msg["pose"].contains("position")) {
+              msg.pose.position.x = j_msg["pose"]["position"]["x"].get<double>();
+              msg.pose.position.y = j_msg["pose"]["position"]["y"].get<double>();
+              msg.pose.position.z = j_msg["pose"]["position"]["z"].get<double>();
+            }
+            if (j_msg["pose"].contains("orientation")) {
+              msg.pose.orientation.x = j_msg["pose"]["orientation"]["x"].get<double>();
+              msg.pose.orientation.y = j_msg["pose"]["orientation"]["y"].get<double>();
+              msg.pose.orientation.z = j_msg["pose"]["orientation"]["z"].get<double>();
+              msg.pose.orientation.w = j_msg["pose"]["orientation"]["w"].get<double>();
+            }
+          }
           msg.valid = j_msg["valid"].get<bool>();
           serializeRosMessage(msg, serialized_msg);
         }
@@ -1685,10 +1825,14 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         else if (msg_type ==
                  "triorb_slam_interface/msg/UInt32MultiArrayStamped") {
           triorb_slam_interface::msg::UInt32MultiArrayStamped msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           for (const auto& data : j_msg["data"]) {
             msg.data.push_back(data.get<uint32_t>());
           }
@@ -1723,10 +1867,14 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_slam_interface/msg/XyArrayStamped") {
           triorb_slam_interface::msg::XyArrayStamped msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           for (const auto& x : j_msg["x"]) {
             msg.x.push_back(x.get<uint16_t>());
           }
@@ -1768,14 +1916,18 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_static_interface/msg/ClockSync") {
           triorb_static_interface::msg::ClockSync msg;
-          msg.header1.frame_id = j_msg["header1"]["frame_id"].get<std::string>();
-          msg.header1.stamp.sec = j_msg["header1"]["stamp"]["sec"].get<int32_t>();
-          msg.header1.stamp.nanosec =
-            j_msg["header1"]["stamp"]["nanosec"].get<uint32_t>();
-          msg.header2.frame_id = j_msg["header2"]["frame_id"].get<std::string>();
-          msg.header2.stamp.sec = j_msg["header2"]["stamp"]["sec"].get<int32_t>();
-          msg.header2.stamp.nanosec =
-            j_msg["header2"]["stamp"]["nanosec"].get<uint32_t>();
+          if (j_msg.contains("header1")) {
+            msg.header1.frame_id = j_msg["header1"]["frame_id"].get<std::string>();
+            msg.header1.stamp.sec = j_msg["header1"]["stamp"]["sec"].get<int32_t>();
+            msg.header1.stamp.nanosec =
+              j_msg["header1"]["stamp"]["nanosec"].get<uint32_t>();
+          }
+          if (j_msg.contains("header2")) {
+            msg.header2.frame_id = j_msg["header2"]["frame_id"].get<std::string>();
+            msg.header2.stamp.sec = j_msg["header2"]["stamp"]["sec"].get<int32_t>();
+            msg.header2.stamp.nanosec =
+              j_msg["header2"]["stamp"]["nanosec"].get<uint32_t>();
+          }
           serializeRosMessage(msg, serialized_msg);
         }
         /*
@@ -1814,10 +1966,14 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_static_interface/msg/HostStatus") {
           triorb_static_interface::msg::HostStatus msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           msg.memory_percent = j_msg["memory_percent"].get<float>();
           msg.cpu_percent = j_msg["cpu_percent"].get<float>();
           msg.host_temperature = j_msg["host_temperature"].get<float>();
@@ -1887,10 +2043,14 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_static_interface/msg/RobotError") {
           triorb_static_interface::msg::RobotError msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           msg.error = j_msg["error"].get<uint8_t>();
           serializeRosMessage(msg, serialized_msg);
         }
@@ -1951,10 +2111,14 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_static_interface/msg/RobotStatus") {
           triorb_static_interface::msg::RobotStatus msg;
-          msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-          msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-          msg.header.stamp.nanosec =
-            j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           msg.voltage = j_msg["voltage"].get<float>();
           msg.btns = j_msg["btns"].get<uint16_t>();
           msg.state = j_msg["state"].get<uint16_t>();
@@ -2312,6 +2476,20 @@ bool primitiveRosMessageToString(
       j_msg["y"] = msg.y;
       j_msg["z"] = msg.z;
       j_msg["w"] = msg.w;
+    } else if (msg_type == "sensor_msgs/msg/Joy"){
+      sensor_msgs::msg::Joy msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["header"]["frame_id"] = msg.header.frame_id;
+      j_msg["header"]["stamp"]["sec"] = msg.header.stamp.sec;
+      j_msg["header"]["stamp"]["nanosec"] = msg.header.stamp.nanosec;
+      j_msg["axes"] = json::array();
+      for (const auto& axis : msg.axes) {
+        j_msg["axes"].push_back(axis);
+      }
+      j_msg["buttons"] = json::array();
+      for (const auto& button : msg.buttons) {
+        j_msg["buttons"].push_back(button);
+      }
     }
 #ifdef HAVE_TRIORB_INTERFACE
     /*
@@ -2350,7 +2528,7 @@ bool primitiveRosMessageToString(
       j_msg["header"]["frame_id"] = msg.header.frame_id;
       j_msg["header"]["stamp"]["sec"] = msg.header.stamp.sec;
       j_msg["header"]["stamp"]["nanosec"] = msg.header.stamp.nanosec;
-      j_msg["parent"] = msg.parent;
+      //j_msg["parent"] = msg.parent;
       j_msg["you"] = msg.you;
       j_msg["x"] = msg.x;
       j_msg["y"] = msg.y;

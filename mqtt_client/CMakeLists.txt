@@ -22,6 +22,7 @@ if(${ROS_VERSION} EQUAL 2)
   find_package(rclcpp_components REQUIRED)
   find_package(std_msgs REQUIRED)
   find_package(geometry_msgs REQUIRED)
+  find_package(sensor_msgs REQUIRED)
   find_package(nlohmann_json REQUIRED)
 
 
