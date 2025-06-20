@@ -37,7 +37,7 @@ _Node::_Node() : Node(GET_NODE_NAME(NODE_NAME)), node_name_(GET_NODE_NAME(NODE_N
 }
 
 void _Node::callback_ping(const std_msgs::msg::String::SharedPtr msg) {
-    RCLCPP_INFO(this->get_logger(), "callback_ping() %s", msg->data.c_str());
+    printf( "callback_ping() %s", msg->data.c_str());
     auto pong_msg = std_msgs::msg::String();
     pong_msg.data = msg->data;
     this->pub_my_pong_->publish(pong_msg);
@@ -46,7 +46,7 @@ void _Node::callback_ping(const std_msgs::msg::String::SharedPtr msg) {
 #ifdef UNIQUE_NODE
 void _Node::callback_unique_check()
 {
-    RCLCPP_INFO(this->get_logger(), "callback_unique_check()");
+    printf( "callback_unique_check()");
     std::vector<std::string> _available_nodes = rclcpp::Node::get_node_names();
     if (std::count(_available_nodes.begin(), _available_nodes.end(), std::string("/") + GET_NODE_NAME(NODE_NAME)) > 1)
     {

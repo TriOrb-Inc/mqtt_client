@@ -4570,7 +4570,7 @@ bool primitiveRosMessageToString(
               retained_param))
           ros2mqtt.mqtt.retained = retained_param.as_bool();
 
-        RCLCPP_INFO(get_logger(),
+        printf(
                     "Bridging %sROS topic '%s' to MQTT topic '%s' %s",
                     ros2mqtt.primitive ? "primitive " : "", ros_topic.c_str(),
                     ros2mqtt.mqtt.topic.c_str(),
@@ -4694,7 +4694,7 @@ bool primitiveRosMessageToString(
               .c_str());
         }
 
-        RCLCPP_INFO(get_logger(),
+        printf(
                     "Bridging MQTT topic '%s' to %sROS topic '%s'",
                     mqtt_topic.c_str(), mqtt2ros.primitive ? "primitive " : "",
                     mqtt2ros.ros.topic.c_str());
@@ -4907,7 +4907,7 @@ bool primitiveRosMessageToString(
           ros2mqtt.ros.subscriber = create_generic_subscription(
             ros_topic, ros2mqtt.ros.msg_type, qos, bound_callback_func);
           ros2mqtt.ros.is_stale = false;
-          RCLCPP_INFO(get_logger(), "Subscribed ROS topic '%s' of type '%s'",
+          printf( "Subscribed ROS topic '%s' of type '%s'",
                       ros_topic.c_str(), ros2mqtt.ros.msg_type.c_str());
         } catch (rclcpp::exceptions::RCLError& e) {
           RCLCPP_ERROR(get_logger(), "Failed to create generic subscriber: %s",
@@ -4943,7 +4943,7 @@ bool primitiveRosMessageToString(
             ros2mqtt.ros.subscriber = create_generic_subscription(
               ros_topic, msg_type, *qos, bound_callback_func);
 
-            RCLCPP_INFO(get_logger(), "Subscribed ROS topic '%s' of type '%s'",
+            printf( "Subscribed ROS topic '%s' of type '%s'",
                         ros_topic.c_str(), msg_type.c_str());
           } catch (rclcpp::exceptions::RCLError& e) {
             RCLCPP_ERROR(get_logger(),
@@ -5061,7 +5061,7 @@ bool primitiveRosMessageToString(
       client_config_.id.empty()
         ? ""
         : std::string(" as '") + client_config_.id + std::string("'");
-    RCLCPP_INFO(get_logger(), "Connecting to broker at '%s'%s ...",
+    printf( "Connecting to broker at '%s'%s ...",
                 client_->get_server_uri().c_str(), as_client.c_str());
 
     try {
@@ -5364,7 +5364,7 @@ bool primitiveRosMessageToString(
     if (ros_msg_type != mqtt2ros.ros.msg_type || mqtt2ros.ros.is_stale) {
 
       mqtt2ros.ros.msg_type = ros_msg_type;
-      RCLCPP_INFO(get_logger(),
+      printf(
                   "ROS publisher message type on topic '%s' set to '%s'",
                   mqtt2ros.ros.topic.c_str(), ros_msg_type.c_str());
 
@@ -5410,7 +5410,7 @@ bool primitiveRosMessageToString(
     } else {
 
       if (!mqtt2ros.ros.publisher) {
-        RCLCPP_INFO(get_logger(),
+        printf(
                     "ROS publisher message type on topic '%s' set to '%s'",
                     mqtt2ros.ros.topic.c_str(), mqtt2ros.ros.msg_type.c_str());
 
@@ -5452,7 +5452,7 @@ bool primitiveRosMessageToString(
       client_config_.id.empty()
         ? ""
         : std::string(" as '") + client_config_.id + std::string("'");
-    RCLCPP_INFO(get_logger(), "Connected to broker at '%s'%s",
+    printf( "Connected to broker at '%s'%s",
                 client_->get_server_uri().c_str(), as_client.c_str());
 
     // subscribe MQTT topics
@@ -5461,7 +5461,7 @@ bool primitiveRosMessageToString(
         std::string const mqtt_topic_to_subscribe =
           kRosMsgTypeMqttTopicPrefix + mqtt_topic;
         client_->subscribe(mqtt_topic_to_subscribe, mqtt2ros.mqtt.qos);
-        RCLCPP_INFO(get_logger(), "Subscribed MQTT topic '%s'",
+        printf( "Subscribed MQTT topic '%s'",
                     mqtt_topic_to_subscribe.c_str());
       }
       // If not primitive and not fixed, we need the message type before we can
@@ -5469,7 +5469,7 @@ bool primitiveRosMessageToString(
       // the data topic
       if (mqtt2ros.primitive || mqtt2ros.fixed_type) {
         client_->subscribe(mqtt_topic, mqtt2ros.mqtt.qos);
-        RCLCPP_INFO(get_logger(), "Subscribed MQTT topic '%s'",
+        printf( "Subscribed MQTT topic '%s'",
                     mqtt_topic.c_str());
       }
     }
@@ -5529,7 +5529,7 @@ bool primitiveRosMessageToString(
       ros2mqtt.stamped = false;
     }
 
-    RCLCPP_INFO(get_logger(), "Bridging %sROS topic '%s' to MQTT topic '%s' %s",
+    printf( "Bridging %sROS topic '%s' to MQTT topic '%s' %s",
                 ros2mqtt.primitive ? "primitive " : "",
                 request->ros_topic.c_str(), ros2mqtt.mqtt.topic.c_str(),
                 ros2mqtt.stamped ? "and measuring latency" : "");
@@ -5563,7 +5563,7 @@ bool primitiveRosMessageToString(
           .c_str());
     }
 
-    RCLCPP_INFO(get_logger(), "Bridging MQTT topic '%s' to %sROS topic '%s'",
+    printf( "Bridging MQTT topic '%s' to %sROS topic '%s'",
                 request->mqtt_topic.c_str(),
                 mqtt2ros.primitive ? "primitive " : "",
                 mqtt2ros.ros.topic.c_str());
@@ -5574,7 +5574,7 @@ bool primitiveRosMessageToString(
       mqtt_topic_to_subscribe =
         kRosMsgTypeMqttTopicPrefix + request->mqtt_topic;
     client_->subscribe(mqtt_topic_to_subscribe, mqtt2ros.mqtt.qos);
-    RCLCPP_INFO(get_logger(), "Subscribed MQTT topic '%s'",
+    printf( "Subscribed MQTT topic '%s'",
                 mqtt_topic_to_subscribe.c_str());
 
     response->success = true;
@@ -5613,7 +5613,7 @@ bool primitiveRosMessageToString(
    * @brief ROS callback that dynamically creates an MQTT -> ROS mapping.
    */
   void MqttClient::callback_add_ros2mqtt(const mqtt_client_interfaces::msg::Ros2MqttInterface::SharedPtr msg) {
-    RCLCPP_INFO(get_logger(), "Add subscribed ROS topic '%s' of type '%s'",
+    printf( "Add subscribed ROS topic '%s' of type '%s'",
                 msg->ros_topic.c_str(), msg->ros_msg_type.c_str());
     std_msgs::msg::String _result_msg;
     _result_msg.data = "add:ros2mqtt:"+msg->ros_topic + ":" + msg->mqtt_topic;
@@ -5649,7 +5649,7 @@ bool primitiveRosMessageToString(
    * @brief ROS callback that dynamically creates a ROS -> MQTT mapping.
    */
   void MqttClient::callback_add_mqtt2ros(const mqtt_client_interfaces::msg::Mqtt2RosInterface::SharedPtr msg) {
-    RCLCPP_INFO(get_logger(), "Add subscribed MQTT topic '%s' of type '%s'",
+    printf( "Add subscribed MQTT topic '%s' of type '%s'",
                 msg->mqtt_topic.c_str(), msg->ros_msg_type.c_str());
     
     std_msgs::msg::String _result_msg;
@@ -5674,7 +5674,7 @@ bool primitiveRosMessageToString(
           std::string const mqtt_topic_to_subscribe =
             kRosMsgTypeMqttTopicPrefix + msg->mqtt_topic;
           client_->subscribe(mqtt_topic_to_subscribe, mqtt2ros.mqtt.qos);
-          RCLCPP_INFO(get_logger(), "Subscribed MQTT topic '%s'",
+          printf( "Subscribed MQTT topic '%s'",
                       mqtt_topic_to_subscribe.c_str());
         }
         // If not primitive and not fixed, we need the message type before we can
@@ -5682,7 +5682,7 @@ bool primitiveRosMessageToString(
         // the data topic
         if (mqtt2ros.primitive || mqtt2ros.fixed_type) {
           client_->subscribe(msg->mqtt_topic, mqtt2ros.mqtt.qos);
-          RCLCPP_INFO(get_logger(), "Subscribed MQTT topic '%s'",
+          printf( "Subscribed MQTT topic '%s'",
                       msg->mqtt_topic.c_str());
         }
 
@@ -5704,7 +5704,7 @@ bool primitiveRosMessageToString(
    * @brief ROS callback that removes a ROS -> MQTT mapping.
    */
   void MqttClient::callback_remove_ros2mqtt(const std_msgs::msg::String::SharedPtr msg) {
-    RCLCPP_INFO(get_logger(), "Received remove ros2mqtt bridge request for topic '%s'",
+    printf( "Received remove ros2mqtt bridge request for topic '%s'",
                 msg->data.c_str());
     std_msgs::msg::String _result_msg;
     this->pub_edit_dynamic_mapping_result_->publish(_result_msg);
@@ -5714,7 +5714,7 @@ bool primitiveRosMessageToString(
    * @brief ROS callback that removes a MQTT -> ROS mapping.
    */
   void MqttClient::callback_remove_mqtt2ros(const std_msgs::msg::String::SharedPtr msg) {
-    RCLCPP_INFO(get_logger(), "Received remove mqtt2ros bridge request for topic '%s'",
+    printf( "Received remove mqtt2ros bridge request for topic '%s'",
                 msg->data.c_str());
     std_msgs::msg::String _result_msg;
     this->pub_edit_dynamic_mapping_result_->publish(_result_msg);
@@ -5803,7 +5803,7 @@ bool primitiveRosMessageToString(
 
         mqtt2ros.ros.msg_type = ros_msg_type.name;
         mqtt2ros.stamped = ros_msg_type.stamped;
-        RCLCPP_INFO(get_logger(),
+        printf(
                     "ROS publisher message type on topic '%s' set to '%s'",
                     mqtt2ros.ros.topic.c_str(), ros_msg_type.name.c_str());
 
