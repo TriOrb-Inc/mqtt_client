@@ -90,6 +90,7 @@ SOFTWARE.
 #include <triorb_drive_interface/msg/triorb_run_result.hpp>
 #include <triorb_drive_interface/msg/triorb_run_setting.hpp>
 #include <triorb_drive_interface/msg/triorb_run_vel3.hpp>
+#include <triorb_drive_interface/msg/triorb_run_vel_v2.hpp>
 #include <triorb_drive_interface/msg/triorb_set_path.hpp>
 #include <triorb_drive_interface/msg/triorb_set_pos3.hpp>
 #include <triorb_drive_interface/msg/triorb_speed.hpp>
@@ -1085,6 +1086,46 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_drive_interface/msg/TriorbRunVel3") {
           triorb_drive_interface::msg::TriorbRunVel3 msg;
+          if (j_msg.contains("speed")) {
+            msg.speed.acc = j_msg["speed"]["acc"].get<uint32_t>();
+            msg.speed.dec = j_msg["speed"]["dec"].get<uint32_t>();
+            msg.speed.xy = j_msg["speed"]["xy"].get<float>();
+            msg.speed.w = j_msg["speed"]["w"].get<float>();
+          }
+          if (j_msg.contains("velocity")) {
+            msg.velocity.vx = j_msg["velocity"]["vx"].get<float>();
+            msg.velocity.vy = j_msg["velocity"]["vy"].get<float>();
+            msg.velocity.vw = j_msg["velocity"]["vw"].get<float>();
+          }
+          serializeRosMessage(msg, serialized_msg);
+        }
+        /*
+        #==速度指示による移動==
+        std_msgs/Header header  # Header
+                builtin_interfaces/Time stamp
+                        int32 sec
+                        uint32 nanosec
+                string frame_id
+        TriorbSpeed speed       # Configure of moving
+                uint32 acc  #
+                uint32 dec  #
+                float32 xy  #
+                float32 w   #
+        TriorbVel3 velocity     # Target velocities
+                float32 vx      #
+                float32 vy      #
+                float32 vw      #
+        */
+        else if (msg_type == "triorb_drive_interface/msg/TriorbRunVelV2") {
+          triorb_drive_interface::msg::TriorbRunVelV2 msg;
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec =
+                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           if (j_msg.contains("speed")) {
             msg.speed.acc = j_msg["speed"]["acc"].get<uint32_t>();
             msg.speed.dec = j_msg["speed"]["dec"].get<uint32_t>();
@@ -3147,6 +3188,37 @@ bool primitiveRosMessageToString(
     else if (msg_type == "triorb_drive_interface/msg/TriorbRunVel3") {
       triorb_drive_interface::msg::TriorbRunVel3 msg;
       deserializeRosMessage(*serialized_msg, msg);
+      j_msg["speed"]["acc"] = msg.speed.acc;
+      j_msg["speed"]["dec"] = msg.speed.dec;
+      j_msg["speed"]["xy"] = msg.speed.xy;
+      j_msg["speed"]["w"] = msg.speed.w;
+      j_msg["velocity"]["vx"] = msg.velocity.vx;
+      j_msg["velocity"]["vy"] = msg.velocity.vy;
+      j_msg["velocity"]["vw"] = msg.velocity.vw;
+    }
+    /*
+    #==速度指示による移動==
+    std_msgs/Header header  # Header
+            builtin_interfaces/Time stamp
+                    int32 sec
+                    uint32 nanosec
+            string frame_id
+    TriorbSpeed speed       # Configure of moving
+            uint32 acc  #
+            uint32 dec  #
+            float32 xy  #
+            float32 w   #
+    TriorbVel3 velocity     # Target velocities
+            float32 vx      #
+            float32 vy      #
+            float32 vw      #
+    */
+    else if (msg_type == "triorb_drive_interface/msg/TriorbRunVelV2"){
+      triorb_drive_interface::msg::TriorbRunVelV2 msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["header"]["frame_id"] = msg.header.frame_id;
+      j_msg["header"]["stamp"]["sec"] = msg.header.stamp.sec;
+      j_msg["header"]["stamp"]["nanosec"] = msg.header.stamp.nanosec;
       j_msg["speed"]["acc"] = msg.speed.acc;
       j_msg["speed"]["dec"] = msg.speed.dec;
       j_msg["speed"]["xy"] = msg.speed.xy;
