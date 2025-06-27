@@ -46,7 +46,7 @@ void _Node::callback_ping(const std_msgs::msg::String::SharedPtr msg) {
 #ifdef UNIQUE_NODE
 void _Node::callback_unique_check()
 {
-    printf( "callback_unique_check()");
+    printf( "callback_unique_check()\n");
     std::vector<std::string> _available_nodes = rclcpp::Node::get_node_names();
     if (std::count(_available_nodes.begin(), _available_nodes.end(), std::string("/") + GET_NODE_NAME(NODE_NAME)) > 1)
     {
