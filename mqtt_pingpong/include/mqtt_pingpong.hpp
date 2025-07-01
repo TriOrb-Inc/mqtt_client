@@ -20,7 +20,7 @@
 // clang-format off
 #define NODE_NAME "pingpong"
 #define NODE_VERSION {1,0,0}
-#define UNIQUE_NODE
+//#define UNIQUE_NODE
 // clang-format on
 
 #include <rclcpp/rclcpp.hpp>
