@@ -37,7 +37,7 @@ _Node::_Node() : Node(GET_NODE_NAME(NODE_NAME)), node_name_(GET_NODE_NAME(NODE_N
 }
 
 void _Node::callback_ping(const std_msgs::msg::String::SharedPtr msg) {
-    printf( "callback_ping() %s", msg->data.c_str());
+    printf( "callback_ping() %s\n", msg->data.c_str());
     auto pong_msg = std_msgs::msg::String();
     pong_msg.data = msg->data;
     this->pub_my_pong_->publish(pong_msg);
@@ -69,6 +69,6 @@ int main(int argc, char **argv)
     rclcpp::init(argc, argv);
     rclcpp::spin(std::make_shared<_Node>());
     rclcpp::shutdown();
-    printf("EOF");
+    printf("EOF\n");
     return 0;
 }
