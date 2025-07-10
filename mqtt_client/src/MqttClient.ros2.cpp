@@ -89,6 +89,7 @@ SOFTWARE.
 #include <triorb_drive_interface/msg/triorb_pos3_stamped.hpp>
 #include <triorb_drive_interface/msg/triorb_run_pos3.hpp>
 #include <triorb_drive_interface/msg/triorb_run_result.hpp>
+#include <triorb_drive_interface/msg/triorb_run_result_stamped.hpp>
 #include <triorb_drive_interface/msg/triorb_run_setting.hpp>
 #include <triorb_drive_interface/msg/triorb_run_vel3.hpp>
 #include <triorb_drive_interface/msg/triorb_run_vel3_stamped.hpp>
@@ -991,23 +992,6 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         }
         /*
         === triorb_drive_interface/msg/TriorbRunResult ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
         #==自律移動結果==
         bool success                # Moving result (true: Compleat, false: Feild)
         TriorbPos3 position         # Last robot position
@@ -1017,6 +1001,37 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         */
         else if (msg_type == "triorb_drive_interface/msg/TriorbRunResult") {
           triorb_drive_interface::msg::TriorbRunResult msg;
+          msg.success = j_msg["success"].get<bool>();
+          if (j_msg.contains("position")) {
+            msg.position.x = j_msg["position"]["x"].get<float>();
+            msg.position.y = j_msg["position"]["y"].get<float>();
+            msg.position.deg = j_msg["position"]["deg"].get<float>();
+          }
+          serializeRosMessage(msg, serialized_msg);
+        }
+        /*
+        === triorb_drive_interface/msg/TriorbRunResultStamped ===
+        #==自律移動結果==
+        std_msgs/Header header  # Header
+                builtin_interfaces/Time stamp
+                        int32 sec
+                        uint32 nanosec
+                string frame_id
+        bool success                # Moving result (true: Compleat, false: Feild)
+        TriorbPos3 position         # Last robot position
+          float32 x       # [m]
+          float32 y       # [m]
+          float32 deg     # [deg]
+        */
+        else if (msg_type == "triorb_drive_interface/msg/TriorbRunResultStamped") {
+          triorb_drive_interface::msg::TriorbRunResultStamped msg;
+          if (j_msg.contains("header")) {
+            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
+            if (j_msg["header"].contains("stamp")) {
+              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
+              msg.header.stamp.nanosec = j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
+            }
+          }
           msg.success = j_msg["success"].get<bool>();
           if (j_msg.contains("position")) {
             msg.position.x = j_msg["position"]["x"].get<float>();
@@ -3103,22 +3118,6 @@ bool primitiveRosMessageToString(
     }
     /*
     === triorb_drive_interface/msg/TriorbRunResult ===
-    #**
-    #* Copyright 2023 TriOrb Inc.
-    #*
-    #* Licensed under the Apache License, Version 2.0 (the "License");
-    #* you may not use this file except in compliance with the License.
-    #* You may obtain a copy of the License at
-    #*
-    #*     http://www.apache.org/licenses/LICENSE-2.0
-    #*
-    #* Unless required by applicable law or agreed to in writing, software
-    #* distributed under the License is distributed on an "AS IS" BASIS,
-    #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    #* See the License for the specific language governing permissions and
-    #* limitations under the License.
-    #**
-
     #==自律移動結果==
     bool success                # Moving result (true: Compleat, false: Feild)
     TriorbPos3 position         # Last robot position
@@ -3129,6 +3128,31 @@ bool primitiveRosMessageToString(
     else if (msg_type == "triorb_drive_interface/msg/TriorbRunResult") {
       triorb_drive_interface::msg::TriorbRunResult msg;
       deserializeRosMessage(*serialized_msg, msg);
+      j_msg["success"] = msg.success;
+      j_msg["position"]["x"] = msg.position.x;
+      j_msg["position"]["y"] = msg.position.y;
+      j_msg["position"]["deg"] = msg.position.deg;
+    }
+    /*
+    === triorb_drive_interface/msg/TriorbRunResultStamped ===
+    #==自律移動結果==
+    std_msgs/Header header  # Header
+            builtin_interfaces/Time stamp
+                    int32 sec
+                    uint32 nanosec
+            string frame_id
+    bool success                # Moving result (true: Compleat, false: Feild)
+    TriorbPos3 position         # Last robot position
+      float32 x       # [m]
+      float32 y       # [m]
+      float32 deg     # [deg]
+    */
+    else if (msg_type == "triorb_drive_interface/msg/TriorbRunResultStamped") {
+      triorb_drive_interface::msg::TriorbRunResultStamped msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["header"]["frame_id"] = msg.header.frame_id;
+      j_msg["header"]["stamp"]["sec"] = msg.header.stamp.sec;
+      j_msg["header"]["stamp"]["nanosec"] = msg.header.stamp.nanosec;
       j_msg["success"] = msg.success;
       j_msg["position"]["x"] = msg.position.x;
       j_msg["position"]["y"] = msg.position.y;
