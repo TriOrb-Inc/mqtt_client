@@ -96,8 +96,6 @@ SOFTWARE.
 #include <triorb_drive_interface/msg/triorb_speed.hpp>
 #include <triorb_drive_interface/msg/triorb_vel3.hpp>
 
-#include <triorb_field_interface/msg/keyframe.hpp>
-
 #include <triorb_sensor_interface/msg/camera_device.hpp>
 #include <triorb_sensor_interface/msg/distance_sensor.hpp>
 #include <triorb_sensor_interface/msg/imu_sensor.hpp>
@@ -1231,39 +1229,6 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
           msg.vx = j_msg["vx"].get<float>();
           msg.vy = j_msg["vy"].get<float>();
           msg.vw = j_msg["vw"].get<float>();
-          serializeRosMessage(msg, serialized_msg);
-        }
-        /*
-        === triorb_field_interface/msg/Keyframe ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==Keyframe information==
-        uint32 id       # Frame id
-        float32 tvec    # Translation vector
-        float32 rvec    # Rotation vector
-        string name     # Name of the frame
-        */
-        else if (msg_type == "triorb_field_interface/msg/Keyframe") {
-          triorb_field_interface::msg::Keyframe msg;
-          msg.id = j_msg["id"].get<uint32_t>();
-          msg.tvec = j_msg["tvec"].get<float>();
-          msg.rvec = j_msg["rvec"].get<float>();
-          msg.name = j_msg["name"].get<std::string>();
           serializeRosMessage(msg, serialized_msg);
         }
         /*
@@ -3187,38 +3152,6 @@ bool primitiveRosMessageToString(
       j_msg["vx"] = msg.vx;
       j_msg["vy"] = msg.vy;
       j_msg["vw"] = msg.vw;
-    }
-    /*
-    === triorb_field_interface/msg/Keyframe ===
-    #**
-    #* Copyright 2023 TriOrb Inc.
-    #*
-    #* Licensed under the Apache License, Version 2.0 (the "License");
-    #* you may not use this file except in compliance with the License.
-    #* You may obtain a copy of the License at
-    #*
-    #*     http://www.apache.org/licenses/LICENSE-2.0
-    #*
-    #* Unless required by applicable law or agreed to in writing, software
-    #* distributed under the License is distributed on an "AS IS" BASIS,
-    #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    #* See the License for the specific language governing permissions and
-    #* limitations under the License.
-    #**
-
-    #==Keyframe information==
-    uint32 id       # Frame id
-    float32 tvec    # Translation vector
-    float32 rvec    # Rotation vector
-    string name     # Name of the frame
-    */
-    else if (msg_type == "triorb_field_interface/msg/Keyframe") {
-      triorb_field_interface::msg::Keyframe msg;
-      deserializeRosMessage(*serialized_msg, msg);
-      j_msg["id"] = msg.id;
-      j_msg["tvec"] = msg.tvec;
-      j_msg["rvec"] = msg.rvec;
-      j_msg["name"] = msg.name;
     }
     /*
     === triorb_sensor_interface/msg/CameraDevice ===

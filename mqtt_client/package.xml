@@ -44,7 +44,6 @@
   <!-- TriOrb -->
   <depend>triorb_cv_interface</depend>
   <depend>triorb_drive_interface</depend>
-  <depend>triorb_field_interface</depend>
   <depend>triorb_project_interface</depend>
   <depend>triorb_sensor_interface</depend>
   <depend>triorb_static_interface</depend>

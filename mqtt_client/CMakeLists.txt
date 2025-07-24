@@ -60,7 +60,6 @@ if(${ROS_VERSION} EQUAL 2)
   add_definitions(-DHAVE_TRIORB_INTERFACE)
   find_package(triorb_drive_interface REQUIRED)
   find_package(triorb_cv_interface REQUIRED)
-  find_package(triorb_field_interface REQUIRED)
   find_package(triorb_project_interface REQUIRED)
   find_package(triorb_sensor_interface REQUIRED)
   find_package(triorb_static_interface REQUIRED)
@@ -69,7 +68,6 @@ if(${ROS_VERSION} EQUAL 2)
   ament_target_dependencies(${PROJECT_NAME}_lib
     triorb_drive_interface
     triorb_cv_interface
-    triorb_field_interface
     triorb_project_interface
     triorb_sensor_interface
     triorb_static_interface
