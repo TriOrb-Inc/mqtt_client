@@ -729,6 +729,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
           float32 tr                  # Target error in rotation [±deg
           uint8 force                 #
           uint8 gain_no               #
+          uint32 timeout_ms           # Timeout (in ms) for the operation to complete (set:0, disable)
           uint8[] disable_camera_idx  #
   
         */
@@ -759,6 +760,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             msg.setting.tr = j_msg["setting"]["tr"].get<float>();
             msg.setting.force = j_msg["setting"]["force"].get<uint8_t>();
             msg.setting.gain_no = j_msg["setting"]["gain_no"].get<uint8_t>();
+            msg.setting.timeout_ms = j_msg["setting"]["timeout_ms"].get<uint32_t>();
             for (const auto& disable_camera_idx :
                  j_msg["setting"]["disable_camera_idx"]) {
               msg.setting.disable_camera_idx.push_back(
@@ -857,6 +859,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         === triorb_drive_interface/msg/TriorbRunResult ===
         #==自律移動結果==
         bool success                # Moving result (true: Compleat, false: Feild)
+        uint8 info                  # Moving result info ( substitution NAVIGATE_RESULT )
         TriorbPos3 position         # Last robot position
           float32 x       # [m]
           float32 y       # [m]
@@ -865,6 +868,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         else if (msg_type == "triorb_drive_interface/msg/TriorbRunResult") {
           triorb_drive_interface::msg::TriorbRunResult msg;
           msg.success = j_msg["success"].get<bool>();
+          msg.info = j_msg["info"].get<uint8_t>();
           if (j_msg.contains("position")) {
             msg.position.x = j_msg["position"]["x"].get<float>();
             msg.position.y = j_msg["position"]["y"].get<float>();
@@ -881,6 +885,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
                         uint32 nanosec
                 string frame_id
         bool success                # Moving result (true: Compleat, false: Feild)
+        uint8 info                  # Moving result info ( substitution NAVIGATE_RESULT )
         TriorbPos3 position         # Last robot position
           float32 x       # [m]
           float32 y       # [m]
@@ -896,6 +901,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             }
           }
           msg.success = j_msg["success"].get<bool>();
+          msg.info = j_msg["info"].get<uint8_t>();
           if (j_msg.contains("position")) {
             msg.position.x = j_msg["position"]["x"].get<float>();
             msg.position.y = j_msg["position"]["y"].get<float>();
@@ -928,6 +934,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         float32 tr                  # Target error in rotation [±deg].
         uint8 force                 # Target force level
         uint8 gain_no               # Number of gain type (not set:0, basic:1)
+        uint32 timeout_ms           # Timeout (in ms) for the operation to complete (set:0, disable)
         uint8[] disable_camera_idx  # Camera Index to be excluded from robot pose
         estimation
         */
@@ -938,6 +945,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
           msg.tr = j_msg["tr"].get<float>();
           msg.force = j_msg["force"].get<uint8_t>();
           msg.gain_no = j_msg["gain_no"].get<uint8_t>();
+          msg.timeout_ms = j_msg["timeout_ms"].get<uint32_t>();
           for (const auto& disable_camera_idx : j_msg["disable_camera_idx"]) {
             msg.disable_camera_idx.push_back(disable_camera_idx.get<uint8_t>());
           }
@@ -1064,6 +1072,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             float32 tr                  # Target error in rotation [±deg
             uint8 force                 #
             uint8 gain_no               #
+            uint32 timeout_ms           # Timeout (in ms) for the operation to complete (set:0, disable)
             uint8[] disable_camera_idx  #
         */
         else if (msg_type == "triorb_drive_interface/msg/TriorbSetPath") {
@@ -1089,6 +1098,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
               path_msg.setting.tr = path["setting"]["tr"].get<float>();
               path_msg.setting.force = path["setting"]["force"].get<uint8_t>();
               path_msg.setting.gain_no = path["setting"]["gain_no"].get<uint8_t>();
+              path_msg.setting.timeout_ms = path["setting"]["timeout_ms"].get<uint32_t>();
               for (const auto& disable_camera_idx :
                    path["setting"]["disable_camera_idx"]) {
                 path_msg.setting.disable_camera_idx.push_back(
@@ -1135,6 +1145,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
           float32 tr                  # Target error in rotation [±deg
           uint8 force                 #
           uint8 gain_no               #
+          uint32 timeout_ms           # Timeout (in ms) for the operation to complete (set:0, disable)
           uint8[] disable_camera_idx  #
   
         */
@@ -1159,6 +1170,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             msg.setting.tr = j_msg["setting"]["tr"].get<float>();
             msg.setting.force = j_msg["setting"]["force"].get<uint8_t>();
             msg.setting.gain_no = j_msg["setting"]["gain_no"].get<uint8_t>();
+            msg.setting.timeout_ms = j_msg["setting"]["timeout_ms"].get<uint32_t>();
             for (const auto& disable_camera_idx :
                  j_msg["setting"]["disable_camera_idx"]) {
               msg.setting.disable_camera_idx.push_back(
@@ -2713,6 +2725,7 @@ bool primitiveRosMessageToString(
       float32 tr                  # Target error in rotation [±deg
       uint8 force                 #
       uint8 gain_no               #
+      uint32 timeout_ms           # Timeout (in ms) for the operation to complete (set:0, disable)
       uint8[] disable_camera_idx  #
 
     */
@@ -2741,6 +2754,7 @@ bool primitiveRosMessageToString(
       j_msg["setting"]["tr"] = msg.setting.tr;
       j_msg["setting"]["force"] = msg.setting.force;
       j_msg["setting"]["gain_no"] = msg.setting.gain_no;
+      j_msg["setting"]["timeout_ms"] = msg.setting.timeout_ms;
       for (const auto& disable_camera_idx : msg.setting.disable_camera_idx) {
         j_msg["setting"]["disable_camera_idx"].push_back(disable_camera_idx);
       }
@@ -2825,6 +2839,7 @@ bool primitiveRosMessageToString(
     === triorb_drive_interface/msg/TriorbRunResult ===
     #==自律移動結果==
     bool success                # Moving result (true: Compleat, false: Feild)
+    uint8 info                  # Moving result info ( substitution NAVIGATE_RESULT )
     TriorbPos3 position         # Last robot position
       float32 x       # [m]
       float32 y       # [m]
@@ -2834,6 +2849,7 @@ bool primitiveRosMessageToString(
       triorb_drive_interface::msg::TriorbRunResult msg;
       deserializeRosMessage(*serialized_msg, msg);
       j_msg["success"] = msg.success;
+      j_msg["info"] = msg.info;
       j_msg["position"]["x"] = msg.position.x;
       j_msg["position"]["y"] = msg.position.y;
       j_msg["position"]["deg"] = msg.position.deg;
@@ -2847,6 +2863,7 @@ bool primitiveRosMessageToString(
                     uint32 nanosec
             string frame_id
     bool success                # Moving result (true: Compleat, false: Feild)
+    uint8 info                  # Moving result info ( substitution NAVIGATE_RESULT )
     TriorbPos3 position         # Last robot position
       float32 x       # [m]
       float32 y       # [m]
@@ -2859,6 +2876,7 @@ bool primitiveRosMessageToString(
       j_msg["header"]["stamp"]["sec"] = msg.header.stamp.sec;
       j_msg["header"]["stamp"]["nanosec"] = msg.header.stamp.nanosec;
       j_msg["success"] = msg.success;
+      j_msg["info"] = msg.info;
       j_msg["position"]["x"] = msg.position.x;
       j_msg["position"]["y"] = msg.position.y;
       j_msg["position"]["deg"] = msg.position.deg;
@@ -2887,6 +2905,7 @@ bool primitiveRosMessageToString(
     float32 tr                  # Target error in rotation [±deg].
     uint8 force                 # Target force level
     uint8 gain_no               # Number of gain type (not set:0, basic:1)
+    uint32 timeout_ms           # Timeout (in ms) for the operation to complete (set:0, disable)
     uint8[] disable_camera_idx  # Camera Index to be excluded from robot pose
     estimation
     */
@@ -2898,6 +2917,7 @@ bool primitiveRosMessageToString(
       j_msg["tr"] = msg.tr;
       j_msg["force"] = msg.force;
       j_msg["gain_no"] = msg.gain_no;
+      j_msg["timeout_ms"] = msg.timeout_ms;
       for (const auto& disable_camera_idx : msg.disable_camera_idx) {
         j_msg["disable_camera_idx"].push_back(disable_camera_idx);
       }
@@ -3008,6 +3028,7 @@ bool primitiveRosMessageToString(
         float32 tr                  # Target error in rotation [±deg
         uint8 force                 #
         uint8 gain_no               #
+        uint32 timeout_ms           # Timeout (in ms) for the operation to complete (set:0, disable)
         uint8[] disable_camera_idx  #
     */
     else if (msg_type == "triorb_drive_interface/msg/TriorbSetPath") {
@@ -3027,6 +3048,7 @@ bool primitiveRosMessageToString(
         path_json["setting"]["tr"] = path.setting.tr;
         path_json["setting"]["force"] = path.setting.force;
         path_json["setting"]["gain_no"] = path.setting.gain_no;
+        path_json["setting"]["timeout_ms"] = path.setting.timeout_ms;
         for (const auto& disable_camera_idx : path.setting.disable_camera_idx) {
           path_json["setting"]["disable_camera_idx"].push_back(
             disable_camera_idx);
@@ -3069,6 +3091,7 @@ bool primitiveRosMessageToString(
       float32 tr                  # Target error in rotation [±deg
       uint8 force                 #
       uint8 gain_no               #
+      uint32 timeout_ms           # Timeout (in ms) for the operation to complete (set:0, disable)
       uint8[] disable_camera_idx  #
 
     */
@@ -3087,6 +3110,7 @@ bool primitiveRosMessageToString(
       j_msg["setting"]["tr"] = msg.setting.tr;
       j_msg["setting"]["force"] = msg.setting.force;
       j_msg["setting"]["gain_no"] = msg.setting.gain_no;
+      j_msg["setting"]["timeout_ms"] = msg.setting.timeout_ms;
       for (const auto& disable_camera_idx : msg.setting.disable_camera_idx) {
         j_msg["setting"]["disable_camera_idx"].push_back(disable_camera_idx);
       }
