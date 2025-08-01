@@ -88,6 +88,7 @@ SOFTWARE.
 #include <triorb_drive_interface/msg/triorb_run_pos3.hpp>
 #include <triorb_drive_interface/msg/triorb_run_result.hpp>
 #include <triorb_drive_interface/msg/triorb_run_result_stamped.hpp>
+#include <triorb_drive_interface/msg/triorb_run_state.hpp>
 #include <triorb_drive_interface/msg/triorb_run_setting.hpp>
 #include <triorb_drive_interface/msg/triorb_run_vel3.hpp>
 #include <triorb_drive_interface/msg/triorb_run_vel3_stamped.hpp>
@@ -760,7 +761,9 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             msg.setting.tr = j_msg["setting"]["tr"].get<float>();
             msg.setting.force = j_msg["setting"]["force"].get<uint8_t>();
             msg.setting.gain_no = j_msg["setting"]["gain_no"].get<uint8_t>();
-            msg.setting.timeout_ms = j_msg["setting"]["timeout_ms"].get<uint32_t>();
+            if (j_msg["setting"].contains("timeout_ms")) {
+              msg.setting.timeout_ms = j_msg["setting"]["timeout_ms"].get<uint32_t>();
+            } 
             for (const auto& disable_camera_idx :
                  j_msg["setting"]["disable_camera_idx"]) {
               msg.setting.disable_camera_idx.push_back(
@@ -910,6 +913,23 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
           serializeRosMessage(msg, serialized_msg);
         }
         /*
+        === triorb_drive_interface/msg/TriorbRunState ===
+        #==自律移動pkgの状態通知トピック==
+        TriorbPos3 goal_pos     # Latest goal position
+        uint8 state             # Navigate state
+        */
+        else if (msg_type == "triorb_drive_interface/msg/TriorbRunState") {
+          triorb_drive_interface::msg::TriorbRunState msg;
+          if (j_msg.contains("goal_pos")) {
+            msg.goal_pos.x = j_msg["goal_pos"]["x"].get<float>();
+            msg.goal_pos.y = j_msg["goal_pos"]["y"].get<float>();
+            msg.goal_pos.deg = j_msg["goal_pos"]["deg"].get<float>();
+          }
+          msg.state = j_msg["state"].get<uint8_t>();
+          serializeRosMessage(msg, serialized_msg);
+        }
+
+        /*
         === triorb_drive_interface/msg/TriorbRunSetting ===
         #**
         #* Copyright 2023 TriOrb Inc.
@@ -945,7 +965,9 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
           msg.tr = j_msg["tr"].get<float>();
           msg.force = j_msg["force"].get<uint8_t>();
           msg.gain_no = j_msg["gain_no"].get<uint8_t>();
-          msg.timeout_ms = j_msg["timeout_ms"].get<uint32_t>();
+          if (j_msg.contains("timeout_ms")){
+            msg.timeout_ms = j_msg["timeout_ms"].get<uint32_t>();
+          }
           for (const auto& disable_camera_idx : j_msg["disable_camera_idx"]) {
             msg.disable_camera_idx.push_back(disable_camera_idx.get<uint8_t>());
           }
@@ -1098,7 +1120,9 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
               path_msg.setting.tr = path["setting"]["tr"].get<float>();
               path_msg.setting.force = path["setting"]["force"].get<uint8_t>();
               path_msg.setting.gain_no = path["setting"]["gain_no"].get<uint8_t>();
-              path_msg.setting.timeout_ms = path["setting"]["timeout_ms"].get<uint32_t>();
+              if (path["setting"].contains("timeout_ms")){
+                path_msg.setting.timeout_ms = path["setting"]["timeout_ms"].get<uint32_t>();
+              }
               for (const auto& disable_camera_idx :
                    path["setting"]["disable_camera_idx"]) {
                 path_msg.setting.disable_camera_idx.push_back(
@@ -1170,7 +1194,9 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             msg.setting.tr = j_msg["setting"]["tr"].get<float>();
             msg.setting.force = j_msg["setting"]["force"].get<uint8_t>();
             msg.setting.gain_no = j_msg["setting"]["gain_no"].get<uint8_t>();
-            msg.setting.timeout_ms = j_msg["setting"]["timeout_ms"].get<uint32_t>();
+            if (j_msg["setting"].contains("timeout_ms")) {
+              msg.setting.timeout_ms = j_msg["setting"]["timeout_ms"].get<uint32_t>();
+            }
             for (const auto& disable_camera_idx :
                  j_msg["setting"]["disable_camera_idx"]) {
               msg.setting.disable_camera_idx.push_back(
@@ -2881,6 +2907,22 @@ bool primitiveRosMessageToString(
       j_msg["position"]["y"] = msg.position.y;
       j_msg["position"]["deg"] = msg.position.deg;
     }
+
+    /*
+    === triorb_drive_interface/msg/TriorbRunState ===
+    #==自律移動pkgの状態通知トピック==
+    TriorbPos3 goal_pos     # Latest goal position
+    uint8 state             # Navigate state
+    */
+    else if (msg_type == "triorb_drive_interface/msg/TriorbRunState") {
+      triorb_drive_interface::msg::TriorbRunState msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      j_msg["goal_pos"]["x"] = msg.goal_pos.x;
+      j_msg["goal_pos"]["y"] = msg.goal_pos.y;
+      j_msg["goal_pos"]["deg"] = msg.goal_pos.deg;
+      j_msg["state"] = msg.state;
+    }
+
     /*
     === triorb_drive_interface/msg/TriorbRunSetting ===
     #**
