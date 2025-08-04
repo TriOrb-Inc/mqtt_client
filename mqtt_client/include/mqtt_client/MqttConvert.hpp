@@ -122,6 +122,7 @@ namespace mqtt_client {
 
   void toJoy(const json& j_msg, sensor_msgs::msg::Joy &msg);
 
+
   #ifdef HAVE_TRIORB_INTERFACE
   void toParentBind(const json& j_msg, triorb_collaboration_interface::msg::ParentBind &msg);
   
@@ -168,6 +169,71 @@ namespace mqtt_client {
   void toSettingROS(const json& j_msg, triorb_static_interface::msg::SettingROS &msg);
   void toSettingSSID(const json& j_msg, triorb_static_interface::msg::SettingSSID &msg);
   void toStringList(const json& j_msg, triorb_static_interface::msg::StringList &msg);
-
   #endif
+
+
+
+  void fromHeader(const std_msgs::msg::Header& msg, json& j_msg);
+  void fromInt8MultiArray(const std_msgs::msg::Int8MultiArray& msg, json& j_msg);
+  void fromUInt8MultiArray(const std_msgs::msg::UInt8MultiArray& msg, json& j_msg);
+  void fromInt16MultiArray(const std_msgs::msg::Int16MultiArray& msg, json& j_msg);
+  void fromUInt16MultiArray(const std_msgs::msg::UInt16MultiArray& msg, json& j_msg);
+  void fromInt32MultiArray(const std_msgs::msg::Int32MultiArray& msg, json& j_msg);
+  void fromUInt32MultiArray(const std_msgs::msg::UInt32MultiArray& msg, json& j_msg);
+
+  void fromTransform(const geometry_msgs::msg::Transform& msg, json& j_msg);
+  void fromTransformStamped(const geometry_msgs::msg::TransformStamped& msg, json& j_msg);
+  void fromVector3(const geometry_msgs::msg::Vector3& msg, json& j_msg);
+  void fromQuaternion(const geometry_msgs::msg::Quaternion& msg, json& j_msg);
+
+  void fromJoy(const sensor_msgs::msg::Joy& msg, json& j_msg);
+
+
+  #ifdef HAVE_TRIORB_INTERFACE
+  void fromParentBind(const triorb_collaboration_interface::msg::ParentBind& msg, json& j_msg);
+
+  void fromBoundingBox(const triorb_cv_interface::msg::BoundingBox& msg, json& j_msg);
+  void fromDetection(const triorb_cv_interface::msg::Detection& msg, json& j_msg);
+
+  void fromDriveGains(const triorb_drive_interface::msg::DriveGains& msg, json& j_msg);
+  void fromMotorParams(const triorb_drive_interface::msg::MotorParams& msg, json& j_msg);
+  void fromMotorStatus(const triorb_drive_interface::msg::MotorStatus& msg, json& j_msg);
+  void fromRoute(const triorb_drive_interface::msg::Route& msg, json& j_msg);
+  void fromTriorbAlignPos3(const triorb_drive_interface::msg::TriorbAlignPos3& msg, json& j_msg);
+  void fromTriorbPos3(const triorb_drive_interface::msg::TriorbPos3& msg, json& j_msg);
+  void fromTriorbPos3Stamped(const triorb_drive_interface::msg::TriorbPos3Stamped& msg, json& j_msg);
+  void fromTriorbRunPos3(const triorb_drive_interface::msg::TriorbRunPos3& msg, json& j_msg);
+  void fromTriorbRunResult(const triorb_drive_interface::msg::TriorbRunResult& msg, json& j_msg);
+  void fromTriorbRunResultStamped(const triorb_drive_interface::msg::TriorbRunResultStamped& msg, json& j_msg);
+  void fromTriorbRunState(const triorb_drive_interface::msg::TriorbRunState& msg, json& j_msg);
+  void fromTriorbRunSetting(const triorb_drive_interface::msg::TriorbRunSetting& msg, json& j_msg);
+  void fromTriorbRunVel3(const triorb_drive_interface::msg::TriorbRunVel3& msg, json& j_msg);
+  void fromTriorbRunVel3Stamped(const triorb_drive_interface::msg::TriorbRunVel3Stamped& msg, json& j_msg);
+  void fromTriorbSetPath(const triorb_drive_interface::msg::TriorbSetPath& msg, json& j_msg);
+  void fromTriorbSetPos3(const triorb_drive_interface::msg::TriorbSetPos3& msg, json& j_msg);
+  void fromTriorbSpeed(const triorb_drive_interface::msg::TriorbSpeed& msg, json& j_msg);
+  void fromTriorbVel3(const triorb_drive_interface::msg::TriorbVel3& msg, json& j_msg);
+
+  void fromCameraDevice(const triorb_sensor_interface::msg::CameraDevice& msg, json& j_msg);
+  void fromDistanceSensor(const triorb_sensor_interface::msg::DistanceSensor& msg, json& j_msg);
+  void fromImuSensor(const triorb_sensor_interface::msg::ImuSensor& msg, json& j_msg);
+  void fromObstacles(const triorb_sensor_interface::msg::Obstacles& msg, json& j_msg);
+
+  void fromCamerasLandmarkInfo(const triorb_slam_interface::msg::CamerasLandmarkInfo& msg, json& j_msg);
+  void fromCamerasPose(const triorb_slam_interface::msg::CamerasPose& msg, json& j_msg);
+  void fromPointArrayStamped(const triorb_slam_interface::msg::PointArrayStamped& msg, json& j_msg);
+  void fromPoseDevStamped(const triorb_slam_interface::msg::PoseDevStamped& msg, json& j_msg);
+  void fromUInt32MultiArrayStamped(const triorb_slam_interface::msg::UInt32MultiArrayStamped& msg, json& j_msg);
+  void fromXyArrayStamped(const triorb_slam_interface::msg::XyArrayStamped& msg, json& j_msg);
+
+  void fromClockSync(const triorb_static_interface::msg::ClockSync& msg, json& j_msg);
+  void fromHostStatus(const triorb_static_interface::msg::HostStatus& msg, json& j_msg);
+  void fromNodeInfo(const triorb_static_interface::msg::NodeInfo& msg, json& j_msg);
+  void fromRobotError(const triorb_static_interface::msg::RobotError& msg, json& j_msg);
+  void fromRobotStatus(const triorb_static_interface::msg::RobotStatus& msg, json& j_msg);
+  void fromSettingIPv4(const triorb_static_interface::msg::SettingIPv4& msg, json& j_msg);
+  void fromSettingROS(const triorb_static_interface::msg::SettingROS& msg, json& j_msg);
+  void fromSettingSSID(const triorb_static_interface::msg::SettingSSID& msg, json& j_msg);
+  void fromStringList(const triorb_static_interface::msg::StringList& msg, json& j_msg);
+  #endif // HAVE_TRIORB_INTERFACE
 }
