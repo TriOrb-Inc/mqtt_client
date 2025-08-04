@@ -34,6 +34,7 @@ SOFTWARE.
 
 // clang-format off
 #include <mqtt_client/MqttClient.ros2.hpp>
+#include <mqtt_client/MqttConvert.hpp>
 #include <mqtt_client_interfaces/msg/ros_msg_type.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <rcpputils/env.hpp>
@@ -51,79 +52,7 @@ SOFTWARE.
 #include <std_msgs/msg/u_int32.hpp>
 #include <std_msgs/msg/u_int64.hpp>
 #include <std_msgs/msg/u_int8.hpp>
-#include <std_msgs/msg/header.hpp>
-#include <std_msgs/msg/int8_multi_array.hpp>
-#include <std_msgs/msg/u_int8_multi_array.hpp>
-#include <std_msgs/msg/int16_multi_array.hpp>
-#include <std_msgs/msg/u_int16_multi_array.hpp>
-#include <std_msgs/msg/int32_multi_array.hpp>
-#include <std_msgs/msg/u_int32_multi_array.hpp>
 
-#include <geometry_msgs/msg/quaternion.hpp>
-#include <geometry_msgs/msg/transform.hpp>
-#include <geometry_msgs/msg/transform_stamped.hpp>
-#include <geometry_msgs/msg/vector3.hpp>
-
-#include <sensor_msgs/msg/joy.hpp>
-
-
-#ifdef HAVE_TRIORB_INTERFACE
-#include <string>
-#include <regex>
-#define GET_NODE_NAME(s) std::regex_replace(std::string(getenv("ROS_PREFIX")) + std::string("_") + std::string(s), std::regex("^_"), "")
-#define GET_TOPIC_NAME(s) std::regex_replace(std::string(getenv("ROS_PREFIX")) + std::string(s), std::regex("//"), "/")
-
-#include <triorb_collaboration_interface/msg/parent_bind.hpp>
-
-#include <triorb_cv_interface/msg/bounding_box.hpp>
-#include <triorb_cv_interface/msg/detection.hpp>
-
-#include <triorb_drive_interface/msg/drive_gains.hpp>
-#include <triorb_drive_interface/msg/motor_params.hpp>
-#include <triorb_drive_interface/msg/motor_status.hpp>
-#include <triorb_drive_interface/msg/route.hpp>
-#include <triorb_drive_interface/msg/triorb_align_pos3.hpp>
-#include <triorb_drive_interface/msg/triorb_pos3.hpp>
-#include <triorb_drive_interface/msg/triorb_pos3_stamped.hpp>
-#include <triorb_drive_interface/msg/triorb_run_pos3.hpp>
-#include <triorb_drive_interface/msg/triorb_run_result.hpp>
-#include <triorb_drive_interface/msg/triorb_run_result_stamped.hpp>
-#include <triorb_drive_interface/msg/triorb_run_state.hpp>
-#include <triorb_drive_interface/msg/triorb_run_setting.hpp>
-#include <triorb_drive_interface/msg/triorb_run_vel3.hpp>
-#include <triorb_drive_interface/msg/triorb_run_vel3_stamped.hpp>
-#include <triorb_drive_interface/msg/triorb_set_path.hpp>
-#include <triorb_drive_interface/msg/triorb_set_pos3.hpp>
-#include <triorb_drive_interface/msg/triorb_speed.hpp>
-#include <triorb_drive_interface/msg/triorb_vel3.hpp>
-
-#include <triorb_sensor_interface/msg/camera_device.hpp>
-#include <triorb_sensor_interface/msg/distance_sensor.hpp>
-#include <triorb_sensor_interface/msg/imu_sensor.hpp>
-#include <triorb_sensor_interface/msg/obstacles.hpp>
-
-#include <triorb_slam_interface/msg/cameras_landmark_info.hpp>
-#include <triorb_slam_interface/msg/cameras_pose.hpp>
-#include <triorb_slam_interface/msg/point_array_stamped.hpp>
-#include <triorb_slam_interface/msg/pose_dev_stamped.hpp>
-#include <triorb_slam_interface/msg/u_int32_multi_array_stamped.hpp>
-#include <triorb_slam_interface/msg/xy_array_stamped.hpp>
-
-#include <triorb_static_interface/msg/clock_sync.hpp>
-#include <triorb_static_interface/msg/host_status.hpp>
-#include <triorb_static_interface/msg/node_info.hpp>
-#include <triorb_static_interface/msg/robot_error.hpp>
-#include <triorb_static_interface/msg/robot_status.hpp>
-#include <triorb_static_interface/msg/setting_i_pv4.hpp>
-#include <triorb_static_interface/msg/setting_ros.hpp>
-#include <triorb_static_interface/msg/setting_ssid.hpp>
-#include <triorb_static_interface/msg/string_list.hpp>
-
-#endif //HAVE_TRIORB_INTERFACE
-
-#include <nlohmann/json.hpp> 
-using json = nlohmann::json;
-// clang-format on
 
 RCLCPP_COMPONENTS_REGISTER_NODE(mqtt_client::MqttClient)
 
@@ -250,11 +179,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
         // 各Keyが存在しない場合はデフォルト値を代入する
         if (msg_type == "std_msgs/msg/Header") {
           std_msgs::msg::Header msg;
-          msg.frame_id = j_msg["frame_id"].get<std::string>();
-          if (j_msg.contains("stamp")) {
-            msg.stamp.sec = j_msg["stamp"]["sec"].get<int32_t>();
-            msg.stamp.nanosec = j_msg["stamp"]["nanosec"].get<uint32_t>();
-          }
+          toHeader(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
   
         } else if (msg_type == "std_msgs/msg/Int8MultiArray") {
@@ -263,9 +188,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             rclcpp::get_logger("mqtt_client"),
             "Int8MultiArray layout is not supported. Only data is used.");
           std_msgs::msg::Int8MultiArray msg;
-          for (const auto& data : j_msg.contains("data") ? j_msg["data"] : j_msg) {
-            msg.data.push_back(data.get<int8_t>());
-          }
+          toInt8MultiArray(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         } else if (msg_type == "std_msgs/msg/UInt8MultiArray") {
           // layout非対応のため１回だけ警告を出す
@@ -273,9 +196,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             rclcpp::get_logger("mqtt_client"),
             "UInt8MultiArray layout is not supported. Only data is used.");
           std_msgs::msg::UInt8MultiArray msg;
-          for (const auto& data : j_msg.contains("data") ? j_msg["data"] : j_msg) {
-            msg.data.push_back(data.get<uint8_t>());
-          }
+          toUInt8MultiArray(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         } else if (msg_type == "std_msgs/msg/Int16MultiArray") {
           // layout非対応のため１回だけ警告を出す
@@ -283,9 +204,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             rclcpp::get_logger("mqtt_client"),
             "Int16MultiArray layout is not supported. Only data is used.");
           std_msgs::msg::Int16MultiArray msg;
-          for (const auto& data : j_msg.contains("data") ? j_msg["data"] : j_msg) {
-            msg.data.push_back(data.get<int16_t>());
-          }
+          toInt16MultiArray(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         } else if (msg_type == "std_msgs/msg/UInt16MultiArray") {
           // layout非対応のため１回だけ警告を出す
@@ -293,9 +212,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             rclcpp::get_logger("mqtt_client"),
             "UInt16MultiArray layout is not supported. Only data is used.");
           std_msgs::msg::UInt16MultiArray msg;
-          for (const auto& data : j_msg.contains("data") ? j_msg["data"] : j_msg) {
-            msg.data.push_back(data.get<uint16_t>());
-          }
+          toUInt16MultiArray(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         } else if (msg_type == "std_msgs/msg/Int32MultiArray") {
           // layout非対応のため１回だけ警告を出す
@@ -303,9 +220,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             rclcpp::get_logger("mqtt_client"),
             "Int32MultiArray layout is not supported. Only data is used.");
           std_msgs::msg::Int32MultiArray msg;
-          for (const auto& data : j_msg.contains("data") ? j_msg["data"] : j_msg) {
-            msg.data.push_back(data.get<int32_t>());
-          }
+          toInt32MultiArray(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         } else if (msg_type == "std_msgs/msg/UInt32MultiArray") {
           // layout非対応のため１回だけ警告を出す
@@ -313,1887 +228,229 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             rclcpp::get_logger("mqtt_client"),
             "UInt32MultiArray layout is not supported. Only data is used.");
           std_msgs::msg::UInt32MultiArray msg;
-          for (const auto& data : j_msg.contains("data") ? j_msg["data"] : j_msg) {
-            msg.data.push_back(data.get<uint32_t>());
-          }
+          toUInt32MultiArray(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         } else if (msg_type == "geometry_msgs/msg/Transform") {
           geometry_msgs::msg::Transform msg;
-          if (j_msg.contains("translation")) {
-            msg.translation.x = j_msg["translation"]["x"].get<float>();
-            msg.translation.y = j_msg["translation"]["y"].get<float>();
-            msg.translation.z = j_msg["translation"]["z"].get<float>();
-          }
-          if (j_msg.contains("rotation")) {
-            msg.rotation.x = j_msg["rotation"]["x"].get<float>();
-            msg.rotation.y = j_msg["rotation"]["y"].get<float>();
-            msg.rotation.z = j_msg["rotation"]["z"].get<float>();
-            msg.rotation.w = j_msg["rotation"]["w"].get<float>();
-          }
+          toTransform(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
-  
         } else if (msg_type == "geometry_msgs/msg/TransformStamped") {
           geometry_msgs::msg::TransformStamped msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          msg.child_frame_id = j_msg["child_frame_id"].get<std::string>();
-          if (j_msg.contains("transform")) {
-            if (j_msg["transform"].contains("translation")) {
-              msg.transform.translation.x =
-                j_msg["transform"]["translation"]["x"].get<float>();
-              msg.transform.translation.y =
-                j_msg["transform"]["translation"]["y"].get<float>();
-              msg.transform.translation.z =
-                j_msg["transform"]["translation"]["z"].get<float>();
-            }
-            if (j_msg["transform"].contains("rotation")) {
-              msg.transform.rotation.x =
-                j_msg["transform"]["rotation"]["x"].get<float>();
-              msg.transform.rotation.y =
-                j_msg["transform"]["rotation"]["y"].get<float>();
-              msg.transform.rotation.z =
-                j_msg["transform"]["rotation"]["z"].get<float>();
-              msg.transform.rotation.w =
-                j_msg["transform"]["rotation"]["w"].get<float>();
-            }
-          }
+          toTransformStamped(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
-  
         } else if (msg_type == "geometry_msgs/msg/Vector3") {
           geometry_msgs::msg::Vector3 msg;
-          msg.x = j_msg["x"].get<float>();
-          msg.y = j_msg["y"].get<float>();
-          msg.z = j_msg["z"].get<float>();
+          toVector3(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
-  
         } else if (msg_type == "geometry_msgs/msg/Quaternion") {
           geometry_msgs::msg::Quaternion msg;
-          msg.x = j_msg["x"].get<float>();
-          msg.y = j_msg["y"].get<float>();
-          msg.z = j_msg["z"].get<float>();
-          msg.w = j_msg["w"].get<float>();
+          toQuaternion(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         } else if (msg_type == "sensor_msgs/msg/Joy"){
           sensor_msgs::msg::Joy msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          if (j_msg.contains("axes")) {
-            for (const auto& axis : j_msg["axes"]) {
-              msg.axes.push_back(axis.get<float>());
-            }
-          }
-          if (j_msg.contains("buttons")) {
-            for (const auto& button : j_msg["buttons"]) {
-              msg.buttons.push_back(button.get<uint8_t>());
-            }
-          }
+          toJoy(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
   #ifdef HAVE_TRIORB_INTERFACE
-        /*
-        === triorb_collaboration_interface/msg/ParentBind ===
-        "header:
-          stamp:
-            sec: 0
-            nanosec: 0
-          frame_id: ''
-        parent: ''
-        you: ''
-        x: 0.0
-        y: 0.0
-        deg: 0.0
-        "
-        */
         else if (msg_type == "triorb_collaboration_interface/msg/ParentBind") {
           triorb_collaboration_interface::msg::ParentBind msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec = j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          //msg.parent = j_msg["parent"].get<std::string>();
-          msg.you = j_msg["you"].get<std::string>();
-          msg.x = j_msg["x"].get<float>();
-          msg.y = j_msg["y"].get<float>();
-          msg.deg = j_msg["deg"].get<float>();
+          toParentBind(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_cv_interface/msg/BoundingBox ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        # ==バウンディングボックス座標==
-        float32[] xtl_ytl_xbr_ybr       # [Left-top-x, Left-top-y, Right-bottom-x,
-        Right-bottom-y] [pix]
-        */
         else if (msg_type == "triorb_cv_interface/msg/BoundingBox") {
           triorb_cv_interface::msg::BoundingBox msg;
-          for (const auto& point : j_msg["xtl_ytl_xbr_ybr"]) {
-            msg.xtl_ytl_xbr_ybr.push_back(point.get<float>());
-          }
+          toBoundingBox(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_cv_interface/msg/Detection ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        # ==物体検出結果==
-        std_msgs/Header header      # Timestamp
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        uint32 det_num              # Number of detections
-        BoundingBox[] boxes         # BoundingBoxs
-          float32[] xtl_ytl_xbr_ybr       #
-        float64[] scores            # Detection scores
-        string[] labels             # Object types
-        */
         else if (msg_type == "triorb_cv_interface/msg/Detection") {
           triorb_cv_interface::msg::Detection msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          msg.det_num = j_msg["det_num"].get<uint32_t>();
-          for (const auto& box : j_msg["boxes"]) {
-            triorb_cv_interface::msg::BoundingBox box_msg;
-            for (const auto& point : box["xtl_ytl_xbr_ybr"]) {
-              box_msg.xtl_ytl_xbr_ybr.push_back(point.get<float>());
-            }
-            msg.boxes.push_back(box_msg);
-          }
-          for (const auto& score : j_msg["scores"]) {
-            msg.scores.push_back(score.get<float>());
-          }
-          for (const auto& label : j_msg["labels"]) {
-            msg.labels.push_back(label.get<std::string>());
-          }
+          toDetection(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/DriveGains ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==自律移動のゲインパラメーター==
-        float32 xy_p    # translation P gain
-        float32 xy_i    # translation I gain (0 recommended)
-        float32 xy_d    # translation D gain
-        float32 w_p     # rotation P gain
-        float32 w_i     # rotation I gain (0 recommended)
-        float32 w_d     # rotation D gain
-        */
         else if (msg_type == "triorb_drive_interface/msg/DriveGains") {
           triorb_drive_interface::msg::DriveGains msg;
-          msg.xy_p = j_msg["xy_p"].get<float>();
-          msg.xy_i = j_msg["xy_i"].get<float>();
-          msg.xy_d = j_msg["xy_d"].get<float>();
-          msg.w_p = j_msg["w_p"].get<float>();
-          msg.w_i = j_msg["w_i"].get<float>();
-          msg.w_d = j_msg["w_d"].get<float>();
+          toDriveGains(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/MotorParams ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==モーター制御パラメーター==
-        bool lpf                # Use LPF for driving command filter (False:
-        moving average) uint8 filter_t          # Command filter time constant
-        (0-200)[ms] uint8 pos_p_gain        # Position loop gain (1-50)[Hz] uint16
-        speed_p_gain     # speed loop gain (1-500) [Hz] uint16 speed_i_gain     #
-        speed loop integral time constant (1-10000) [0.01ms] uint16 torque_filter
-        # torque filter (0-4700) [Hz] uint8 speed_ff          # speed feed-forward
-        (0-100) [%] uint8 stiffness         # machine stiffness selection (0-15)
-        */
         else if (msg_type == "triorb_drive_interface/msg/MotorParams") {
           triorb_drive_interface::msg::MotorParams msg;
-          msg.lpf = j_msg["lpf"].get<bool>();
-          msg.filter_t = j_msg["filter_t"].get<uint8_t>();
-          msg.pos_p_gain = j_msg["pos_p_gain"].get<uint8_t>();
-          msg.speed_p_gain = j_msg["speed_p_gain"].get<uint16_t>();
-          msg.speed_i_gain = j_msg["speed_i_gain"].get<uint16_t>();
-          msg.torque_filter = j_msg["torque_filter"].get<uint16_t>();
-          msg.speed_ff = j_msg["speed_ff"].get<uint8_t>();
-          msg.stiffness = j_msg["stiffness"].get<uint8_t>();
+          toMotorParams(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/MotorStatus ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==モーターステータス==
-        std_msgs/Header header      # Timestamp
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        uint16 last_error_value     # Last motor alert flag
-        uint8 last_error_motor      # Motor ID of the last alert
-        float32 voltage             # Mains voltage observed by the motor driver
-        uint16 state                # Operating state of each motor (bit flag)
-        float32 power               # Power consumption of each motor (W)
-  
-        #---Operating state of each motor (bit flag)---
-        # 0x8000: Remote control Y button
-        # 0x4000: Remote control B button
-        # 0x2000: Remote control A button
-        # 0x1000: Remote control X button
-        # 0x0800: Rotating
-        # 0x0400: Position control complete
-        # 0x0200: Excitation in progress
-        # 0x0100: Motor status acquired successfully
-        */
         else if (msg_type == "triorb_drive_interface/msg/MotorStatus") {
           triorb_drive_interface::msg::MotorStatus msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          msg.last_error_value = j_msg["last_error_value"].get<uint16_t>();
-          msg.last_error_motor = j_msg["last_error_motor"].get<uint8_t>();
-          msg.voltage = j_msg["voltage"].get<float>();
-          msg.state = j_msg["state"].get<uint16_t>();
-          msg.power = j_msg["power"].get<float>();
+          toMotorStatus(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/Route ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==自律移動経路==
-        uint32 id               # ID
-        string name             # Name
-        TriorbPos3[] waypoint   # Waypoints
-          float32 x       # [m]
-          float32 y       # [m]
-          float32 deg     # [deg]
-        */
         else if (msg_type == "triorb_drive_interface/msg/Route") {
           triorb_drive_interface::msg::Route msg;
-          msg.id = j_msg["id"].get<uint32_t>();
-          msg.name = j_msg["name"].get<std::string>();
-          for (const auto& waypoint : j_msg["waypoint"]) {
-            triorb_drive_interface::msg::TriorbPos3 waypoint_msg;
-            waypoint_msg.x = waypoint["x"].get<float>();
-            waypoint_msg.y = waypoint["y"].get<float>();
-            waypoint_msg.deg = waypoint["deg"].get<float>();
-            msg.waypoint.push_back(waypoint_msg);
-          }
+          toRoute(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/TriorbAlignPos3 ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        uint16[] marker_id          # 位置合わせ原点とするマーカーのID
-        float32[] marker_size       # マーカーのサイズ
-        TriorbPos3[] position       # 原点に対する相対位置決め位置姿勢
-          float32 x       # [m]
-          float32 y       # [m]
-          float32 deg     # [deg]
-        TriorbSpeed speed           # 移動速度
-          uint32 acc  #
-          uint32 dec  #
-          float32 xy  #
-          float32 w   #
-        TriorbRunSetting setting    # 走行設定
-          float32 tx                  #
-          float32 ty                  # Target error in Y-axis direction [±m
-          float32 tr                  # Target error in rotation [±deg
-          uint8 force                 #
-          uint8 gain_no               #
-          uint32 timeout_ms           # Timeout (in ms) for the operation to complete (set:0, disable)
-          uint8[] disable_camera_idx  #
-  
-        */
         else if (msg_type == "triorb_drive_interface/msg/TriorbAlignPos3") {
           triorb_drive_interface::msg::TriorbAlignPos3 msg;
-          for (const auto& marker_id : j_msg["marker_id"]) {
-            msg.marker_id.push_back(marker_id.get<uint16_t>());
-          }
-          for (const auto& marker_size : j_msg["marker_size"]) {
-            msg.marker_size.push_back(marker_size.get<float>());
-          }
-          for (const auto& position : j_msg["position"]) {
-            triorb_drive_interface::msg::TriorbPos3 position_msg;
-            position_msg.x = position["x"].get<float>();
-            position_msg.y = position["y"].get<float>();
-            position_msg.deg = position["deg"].get<float>();
-            msg.position.push_back(position_msg);
-          }
-          if (j_msg.contains("speed")) {
-            msg.speed.acc = j_msg["speed"]["acc"].get<uint32_t>();
-            msg.speed.dec = j_msg["speed"]["dec"].get<uint32_t>();
-            msg.speed.xy = j_msg["speed"]["xy"].get<float>();
-            msg.speed.w = j_msg["speed"]["w"].get<float>();
-          }
-          if (j_msg.contains("setting")) {
-            msg.setting.tx = j_msg["setting"]["tx"].get<float>();
-            msg.setting.ty = j_msg["setting"]["ty"].get<float>();
-            msg.setting.tr = j_msg["setting"]["tr"].get<float>();
-            msg.setting.force = j_msg["setting"]["force"].get<uint8_t>();
-            msg.setting.gain_no = j_msg["setting"]["gain_no"].get<uint8_t>();
-            if (j_msg["setting"].contains("timeout_ms")) {
-              msg.setting.timeout_ms = j_msg["setting"]["timeout_ms"].get<uint32_t>();
-            } 
-            for (const auto& disable_camera_idx :
-                 j_msg["setting"]["disable_camera_idx"]) {
-              msg.setting.disable_camera_idx.push_back(
-                disable_camera_idx.get<uint8_t>());
-            }
-          }
+          toTriorbAlignPos3(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/TriorbPos3 ===
-        #==平面内の位置・姿勢==
-        float32 x       # [m]
-        float32 y       # [m]
-        float32 deg     # [deg]
-        */
         else if (msg_type == "triorb_drive_interface/msg/TriorbPos3") {
           triorb_drive_interface::msg::TriorbPos3 msg;
-          msg.x = j_msg["x"].get<float>();
-          msg.y = j_msg["y"].get<float>();
-          msg.deg = j_msg["deg"].get<float>();
+          toTriorbPos3(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/TriorbPos3Stamped ===
-        #==平面内の位置・姿勢==
-        std_msgs/Header header  # Header
-                builtin_interfaces/Time stamp
-                        int32 sec
-                        uint32 nanosec
-                string frame_id
-        float32 x               # [m]
-        float32 y               # [m]
-        float32 deg             # [deg]
-        */
         else if (msg_type == "triorb_drive_interface/msg/TriorbPos3Stamped") {
           triorb_drive_interface::msg::TriorbPos3Stamped msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          msg.x = j_msg["x"].get<float>();
-          msg.y = j_msg["y"].get<float>();
-          msg.deg = j_msg["deg"].get<float>();
+          toTriorbPos3Stamped(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/TriorbRunPos3 ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==相対位置・姿勢指示による移動==
-        TriorbSpeed speed       # Configure of moving
-          uint32 acc  #
-          uint32 dec  #
-          float32 xy  #
-          float32 w   #
-        TriorbPos3 position     # Target position
-          float32 x       # [m]
-          float32 y       # [m]
-          float32 deg     # [deg]
-        */
         else if (msg_type == "triorb_drive_interface/msg/TriorbRunPos3") {
           triorb_drive_interface::msg::TriorbRunPos3 msg;
-          if (j_msg.contains("speed")) {
-            msg.speed.acc = j_msg["speed"]["acc"].get<uint32_t>();
-            msg.speed.dec = j_msg["speed"]["dec"].get<uint32_t>();
-            msg.speed.xy = j_msg["speed"]["xy"].get<float>();
-            msg.speed.w = j_msg["speed"]["w"].get<float>();
-          }
-          if (j_msg.contains("position")) {
-            msg.position.x = j_msg["position"]["x"].get<float>();
-            msg.position.y = j_msg["position"]["y"].get<float>();
-            msg.position.deg = j_msg["position"]["deg"].get<float>();
-          }
+          toTriorbRunPos3(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/TriorbRunResult ===
-        #==自律移動結果==
-        bool success                # Moving result (true: Compleat, false: Feild)
-        uint8 info                  # Moving result info ( substitution NAVIGATE_RESULT )
-        TriorbPos3 position         # Last robot position
-          float32 x       # [m]
-          float32 y       # [m]
-          float32 deg     # [deg]
-        */
         else if (msg_type == "triorb_drive_interface/msg/TriorbRunResult") {
           triorb_drive_interface::msg::TriorbRunResult msg;
-          msg.success = j_msg["success"].get<bool>();
-          msg.info = j_msg["info"].get<uint8_t>();
-          if (j_msg.contains("position")) {
-            msg.position.x = j_msg["position"]["x"].get<float>();
-            msg.position.y = j_msg["position"]["y"].get<float>();
-            msg.position.deg = j_msg["position"]["deg"].get<float>();
-          }
+          toTriorbRunResult(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/TriorbRunResultStamped ===
-        #==自律移動結果==
-        std_msgs/Header header  # Header
-                builtin_interfaces/Time stamp
-                        int32 sec
-                        uint32 nanosec
-                string frame_id
-        bool success                # Moving result (true: Compleat, false: Feild)
-        uint8 info                  # Moving result info ( substitution NAVIGATE_RESULT )
-        TriorbPos3 position         # Last robot position
-          float32 x       # [m]
-          float32 y       # [m]
-          float32 deg     # [deg]
-        */
         else if (msg_type == "triorb_drive_interface/msg/TriorbRunResultStamped") {
           triorb_drive_interface::msg::TriorbRunResultStamped msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec = j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          msg.success = j_msg["success"].get<bool>();
-          msg.info = j_msg["info"].get<uint8_t>();
-          if (j_msg.contains("position")) {
-            msg.position.x = j_msg["position"]["x"].get<float>();
-            msg.position.y = j_msg["position"]["y"].get<float>();
-            msg.position.deg = j_msg["position"]["deg"].get<float>();
-          }
+          toTriorbRunResultStamped(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/TriorbRunState ===
-        #==自律移動pkgの状態通知トピック==
-        TriorbPos3 goal_pos     # Latest goal position
-        uint8 state             # Navigate state
-        */
         else if (msg_type == "triorb_drive_interface/msg/TriorbRunState") {
           triorb_drive_interface::msg::TriorbRunState msg;
-          if (j_msg.contains("goal_pos")) {
-            msg.goal_pos.x = j_msg["goal_pos"]["x"].get<float>();
-            msg.goal_pos.y = j_msg["goal_pos"]["y"].get<float>();
-            msg.goal_pos.deg = j_msg["goal_pos"]["deg"].get<float>();
-          }
-          msg.state = j_msg["state"].get<uint8_t>();
+          toTriorbRunState(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-
-        /*
-        === triorb_drive_interface/msg/TriorbRunSetting ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==自律移動の位置決め設定==
-        float32 tx                  # Target error in X-axis direction [±m]
-        float32 ty                  # Target error in Y-axis direction [±m].
-        float32 tr                  # Target error in rotation [±deg].
-        uint8 force                 # Target force level
-        uint8 gain_no               # Number of gain type (not set:0, basic:1)
-        uint32 timeout_ms           # Timeout (in ms) for the operation to complete (set:0, disable)
-        uint8[] disable_camera_idx  # Camera Index to be excluded from robot pose
-        estimation
-        */
         else if (msg_type == "triorb_drive_interface/msg/TriorbRunSetting") {
           triorb_drive_interface::msg::TriorbRunSetting msg;
-          msg.tx = j_msg["tx"].get<float>();
-          msg.ty = j_msg["ty"].get<float>();
-          msg.tr = j_msg["tr"].get<float>();
-          msg.force = j_msg["force"].get<uint8_t>();
-          msg.gain_no = j_msg["gain_no"].get<uint8_t>();
-          if (j_msg.contains("timeout_ms")){
-            msg.timeout_ms = j_msg["timeout_ms"].get<uint32_t>();
-          }
-          for (const auto& disable_camera_idx : j_msg["disable_camera_idx"]) {
-            msg.disable_camera_idx.push_back(disable_camera_idx.get<uint8_t>());
-          }
+          toTriorbRunSetting(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/TriorbRunVel3 ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==速度指示による移動==
-        TriorbSpeed speed       # Configure of moving
-          uint32 acc  #
-          uint32 dec  #
-          float32 xy  #
-          float32 w   #
-        TriorbVel3 velocity     # Target velocities
-          float32 vx      #
-          float32 vy      #
-          float32 vw      #
-        */
         else if (msg_type == "triorb_drive_interface/msg/TriorbRunVel3") {
           triorb_drive_interface::msg::TriorbRunVel3 msg;
-          if (j_msg.contains("speed")) {
-            msg.speed.acc = j_msg["speed"]["acc"].get<uint32_t>();
-            msg.speed.dec = j_msg["speed"]["dec"].get<uint32_t>();
-            msg.speed.xy = j_msg["speed"]["xy"].get<float>();
-            msg.speed.w = j_msg["speed"]["w"].get<float>();
-          }
-          if (j_msg.contains("velocity")) {
-            msg.velocity.vx = j_msg["velocity"]["vx"].get<float>();
-            msg.velocity.vy = j_msg["velocity"]["vy"].get<float>();
-            msg.velocity.vw = j_msg["velocity"]["vw"].get<float>();
-          }
+          toTriorbRunVel3(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        #==速度指示による移動==
-        std_msgs/Header header  # Header
-                builtin_interfaces/Time stamp
-                        int32 sec
-                        uint32 nanosec
-                string frame_id
-        TriorbSpeed speed       # Configure of moving
-                uint32 acc  #
-                uint32 dec  #
-                float32 xy  #
-                float32 w   #
-        TriorbVel3 velocity     # Target velocities
-                float32 vx      #
-                float32 vy      #
-                float32 vw      #
-        */
         else if (msg_type == "triorb_drive_interface/msg/TriorbRunVel3Stamped") {
           triorb_drive_interface::msg::TriorbRunVel3Stamped msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          if (j_msg.contains("speed")) {
-            msg.speed.acc = j_msg["speed"]["acc"].get<uint32_t>();
-            msg.speed.dec = j_msg["speed"]["dec"].get<uint32_t>();
-            msg.speed.xy = j_msg["speed"]["xy"].get<float>();
-            msg.speed.w = j_msg["speed"]["w"].get<float>();
-          }
-          if (j_msg.contains("velocity")) {
-            msg.velocity.vx = j_msg["velocity"]["vx"].get<float>();
-            msg.velocity.vy = j_msg["velocity"]["vy"].get<float>();
-            msg.velocity.vw = j_msg["velocity"]["vw"].get<float>();
-          }
+          toTriorbRunVel3Stamped(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/TriorbSetPath ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        TriorbSetPos3[] path
-          TriorbRunPos3 pos           #
-            TriorbSpeed speed       #
-              uint32 acc  #
-              uint32 dec  #
-              float32 xy  #
-              float32 w   #
-            TriorbPos3 position     #
-              float32 x       # [m]
-              float32 y       # [m]
-              float32 deg     # [deg]
-          TriorbRunSetting setting    #
-            float32 tx                  #
-            float32 ty                  # Target error in Y-axis direction [±m
-            float32 tr                  # Target error in rotation [±deg
-            uint8 force                 #
-            uint8 gain_no               #
-            uint32 timeout_ms           # Timeout (in ms) for the operation to complete (set:0, disable)
-            uint8[] disable_camera_idx  #
-        */
         else if (msg_type == "triorb_drive_interface/msg/TriorbSetPath") {
           triorb_drive_interface::msg::TriorbSetPath msg;
-          for (const auto& path : j_msg["path"]) {
-            triorb_drive_interface::msg::TriorbSetPos3 path_msg;
-            if (path.contains("pos")) {
-              if (path["pos"].contains("speed")) {
-                path_msg.pos.speed.acc = path["pos"]["speed"]["acc"].get<uint32_t>();
-                path_msg.pos.speed.dec = path["pos"]["speed"]["dec"].get<uint32_t>();
-                path_msg.pos.speed.xy = path["pos"]["speed"]["xy"].get<float>();
-                path_msg.pos.speed.w = path["pos"]["speed"]["w"].get<float>();
-              }
-              if (path["pos"].contains("position")) {
-                path_msg.pos.position.x = path["pos"]["position"]["x"].get<float>();
-                path_msg.pos.position.y = path["pos"]["position"]["y"].get<float>();
-                path_msg.pos.position.deg = path["pos"]["position"]["deg"].get<float>();
-              }
-            }
-            if (path.contains("setting")) {
-              path_msg.setting.tx = path["setting"]["tx"].get<float>();
-              path_msg.setting.ty = path["setting"]["ty"].get<float>();
-              path_msg.setting.tr = path["setting"]["tr"].get<float>();
-              path_msg.setting.force = path["setting"]["force"].get<uint8_t>();
-              path_msg.setting.gain_no = path["setting"]["gain_no"].get<uint8_t>();
-              if (path["setting"].contains("timeout_ms")){
-                path_msg.setting.timeout_ms = path["setting"]["timeout_ms"].get<uint32_t>();
-              }
-              for (const auto& disable_camera_idx :
-                   path["setting"]["disable_camera_idx"]) {
-                path_msg.setting.disable_camera_idx.push_back(
-                  disable_camera_idx.get<uint8_t>());
-              }
-            }
-            msg.path.push_back(path_msg);
-          }
+          toTriorbSetPath(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/TriorbSetPos3 ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==目標位置・姿勢指示による移動==
-        TriorbRunPos3 pos           # Goal position
-          TriorbSpeed speed       #
-            uint32 acc  #
-            uint32 dec  #
-            float32 xy  #
-            float32 w   #
-          TriorbPos3 position     #
-            float32 x       # [m]
-            float32 y       # [m]
-            float32 deg     # [deg]
-        TriorbRunSetting setting    # Configure of navigation
-          float32 tx                  #
-          float32 ty                  # Target error in Y-axis direction [±m
-          float32 tr                  # Target error in rotation [±deg
-          uint8 force                 #
-          uint8 gain_no               #
-          uint32 timeout_ms           # Timeout (in ms) for the operation to complete (set:0, disable)
-          uint8[] disable_camera_idx  #
-  
-        */
         else if (msg_type == "triorb_drive_interface/msg/TriorbSetPos3") {
           triorb_drive_interface::msg::TriorbSetPos3 msg;
-          if (j_msg.contains("pos")) {
-            if (j_msg["pos"].contains("speed")) {
-              msg.pos.speed.acc = j_msg["pos"]["speed"]["acc"].get<uint32_t>();
-              msg.pos.speed.dec = j_msg["pos"]["speed"]["dec"].get<uint32_t>();
-              msg.pos.speed.xy = j_msg["pos"]["speed"]["xy"].get<float>();
-              msg.pos.speed.w = j_msg["pos"]["speed"]["w"].get<float>();
-            }
-            if (j_msg["pos"].contains("position")) {
-              msg.pos.position.x = j_msg["pos"]["position"]["x"].get<float>();
-              msg.pos.position.y = j_msg["pos"]["position"]["y"].get<float>();
-              msg.pos.position.deg = j_msg["pos"]["position"]["deg"].get<float>();
-            }
-          }
-          if (j_msg.contains("setting")) {
-            msg.setting.tx = j_msg["setting"]["tx"].get<float>();
-            msg.setting.ty = j_msg["setting"]["ty"].get<float>();
-            msg.setting.tr = j_msg["setting"]["tr"].get<float>();
-            msg.setting.force = j_msg["setting"]["force"].get<uint8_t>();
-            msg.setting.gain_no = j_msg["setting"]["gain_no"].get<uint8_t>();
-            if (j_msg["setting"].contains("timeout_ms")) {
-              msg.setting.timeout_ms = j_msg["setting"]["timeout_ms"].get<uint32_t>();
-            }
-            for (const auto& disable_camera_idx :
-                 j_msg["setting"]["disable_camera_idx"]) {
-              msg.setting.disable_camera_idx.push_back(
-                disable_camera_idx.get<uint8_t>());
-            }
-          }
+          toTriorbSetPos3(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/TriorbSpeed ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==加減速時間・速度の設定==
-        uint32 acc  # Acceleration time [ms]
-        uint32 dec  # Deceleration time [ms]
-        float32 xy  # Translation velocity [m/s]
-        float32 w   # Rotation speed [rad/s]
-        */
         else if (msg_type == "triorb_drive_interface/msg/TriorbSpeed") {
           triorb_drive_interface::msg::TriorbSpeed msg;
-          msg.acc = j_msg["acc"].get<uint32_t>();
-          msg.dec = j_msg["dec"].get<uint32_t>();
-          msg.xy = j_msg["xy"].get<float>();
-          msg.w = j_msg["w"].get<float>();
+          toTriorbSpeed(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_drive_interface/msg/TriorbVel3 ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==平面内の移動速度設定==
-        float32 vx      # Velocity vector along X axis [m/s]
-        float32 vy      # Velocity vector along Y axis [m/s]
-        float32 vw      # Rotation velocity vector around the Z axis [rad/s]
-        */
         else if (msg_type == "triorb_drive_interface/msg/TriorbVel3") {
           triorb_drive_interface::msg::TriorbVel3 msg;
-          msg.vx = j_msg["vx"].get<float>();
-          msg.vy = j_msg["vy"].get<float>();
-          msg.vw = j_msg["vw"].get<float>();
+          toTriorbVel3(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_sensor_interface/msg/CameraDevice ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==カメラデバイス==
-        std_msgs/Header header      # Timestamp
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        string device               # Path of camera device
-        string topic                # Topic name of camera image
-        string id                   # Frame ID of the camera image topic
-        string state                # Camera device status (sleep | wakeup |
-        awake) int16 rotation              # Rotation of the camera image int16
-        exposure              # Camera Exposure float32 gamma               #
-        Gamma correction value float32 timer               # Data collection cycle
-        [s]
-        */
         else if (msg_type == "triorb_sensor_interface/msg/CameraDevice") {
           triorb_sensor_interface::msg::CameraDevice msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          msg.device = j_msg["device"].get<std::string>();
-          msg.topic = j_msg["topic"].get<std::string>();
-          msg.id = j_msg["id"].get<std::string>();
-          msg.state = j_msg["state"].get<std::string>();
-          msg.rotation = j_msg["rotation"].get<int16_t>();
-          msg.exposure = j_msg["exposure"].get<int16_t>();
-          msg.gamma = j_msg["gamma"].get<float>();
-          msg.timer = j_msg["timer"].get<float>();
+          toCameraDevice(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_sensor_interface/msg/DistanceSensor ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==距離センサ==
-        std_msgs/Header header      # Timestamp
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        float32 distance      		# Distance to obstacle [m]
-        uint8 confidence            # Signal reliability (0-100)
-        float32 hfov                # Horizontal detectable angle [deg]
-        float32 vfov                # Vertical detectable angle [deg]
-        float32 max_dist            # Maximum detectable distance [m]
-        float32 min_dist            # Minimum detectable distance [m]
-        float32[] mount_xyz         # Mounting location [m]
-        float32[] mount_ypr         # Mounting orientation [deg]
-        */
         else if (msg_type == "triorb_sensor_interface/msg/DistanceSensor") {
           triorb_sensor_interface::msg::DistanceSensor msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          msg.distance = j_msg["distance"].get<float>();
-          msg.confidence = j_msg["confidence"].get<uint8_t>();
-          msg.hfov = j_msg["hfov"].get<float>();
-          msg.vfov = j_msg["vfov"].get<float>();
-          msg.max_dist = j_msg["max_dist"].get<float>();
-          msg.min_dist = j_msg["min_dist"].get<float>();
-          for (const auto& mount_xyz : j_msg["mount_xyz"]) {
-            msg.mount_xyz.push_back(mount_xyz.get<float>());
-          }
-          for (const auto& mount_ypr : j_msg["mount_ypr"]) {
-            msg.mount_ypr.push_back(mount_ypr.get<float>());
-          }
+          toDistanceSensor(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_sensor_interface/msg/ImuSensor ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==IMUセンサ==
-        std_msgs/Header header # Timestamp
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        float32 yaw
-        float32 pitch
-        float32 roll
-        */
         else if (msg_type == "triorb_sensor_interface/msg/ImuSensor") {
           triorb_sensor_interface::msg::ImuSensor msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          msg.yaw = j_msg["yaw"].get<float>();
-          msg.pitch = j_msg["pitch"].get<float>();
-          msg.roll = j_msg["roll"].get<float>();
+          toImuSensor(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_sensor_interface/msg/Obstacles ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==障害物==
-        std_msgs/Header header      # Timestamp
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        float32 forward      		# Distance to obstacle in forward [m]
-        float32 left      		    # Distance to obstacle in left [m]
-        float32 right      		    # Distance to obstacle in right [m]
-        float32 back      		    # Distance to obstacle in back [m]
-        */
         else if (msg_type == "triorb_sensor_interface/msg/Obstacles") {
           triorb_sensor_interface::msg::Obstacles msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          msg.forward = j_msg["forward"].get<float>();
-          msg.left = j_msg["left"].get<float>();
-          msg.right = j_msg["right"].get<float>();
-          msg.back = j_msg["back"].get<float>();
+          toObstacles(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_slam_interface/msg/CamerasLandmarkInfo ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        std_msgs/Header header            # header
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        PointArrayStamped[] camera        # points array per camera
-          std_msgs/Header
-            builtin_interfaces/Time stamp
-              int32 sec
-              uint32 nanosec
-            string frame_id
-          geometry_msgs/Point[] points        #
-            float64 x
-            float64 y
-            float64 z
-        */
         else if (msg_type == "triorb_slam_interface/msg/CamerasLandmarkInfo") {
           triorb_slam_interface::msg::CamerasLandmarkInfo msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          for (const auto& camera : j_msg["camera"]) {
-            triorb_slam_interface::msg::PointArrayStamped camera_msg;
-            if (camera.contains("header")) {
-              camera_msg.header.frame_id =
-                camera["header"]["frame_id"].get<std::string>();
-              if (camera["header"].contains("stamp")) {
-                camera_msg.header.stamp.sec =
-                  camera["header"]["stamp"]["sec"].get<int32_t>();
-                camera_msg.header.stamp.nanosec =
-                  camera["header"]["stamp"]["nanosec"].get<uint32_t>();
-              }
-            }
-            for (const auto& point : camera["points"]) {
-              geometry_msgs::msg::Point point_msg;
-              point_msg.x = point["x"].get<double>();
-              point_msg.y = point["y"].get<double>();
-              point_msg.z = point["z"].get<double>();
-              camera_msg.points.push_back(point_msg);
-            }
-            msg.camera.push_back(camera_msg);
-          }
+          toCamerasLandmarkInfo(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_slam_interface/msg/CamerasPose ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        std_msgs/Header header         # header
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        PoseDevStamped[] camera        # pose info
-          std_msgs/Header
-            builtin_interfaces/Time stamp
-              int32 sec
-              uint32 nanosec
-            string frame_id
-          geometry_msgs/Pose pose             #
-            Point position
-              float64 x
-              float64 y
-              float64 z
-            Quaternion orientation
-              float64 x 0
-              float64 y 0
-              float64 z 0
-              float64 w 1
-          bool
-        */
         else if (msg_type == "triorb_slam_interface/msg/CamerasPose") {
           triorb_slam_interface::msg::CamerasPose msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          for (const auto& camera : j_msg["camera"]) {
-            triorb_slam_interface::msg::PoseDevStamped camera_msg;
-            if (camera.contains("header")) {
-              camera_msg.header.frame_id =
-                camera["header"]["frame_id"].get<std::string>();
-              if (camera["header"].contains("stamp")) {
-                camera_msg.header.stamp.sec =
-                  camera["header"]["stamp"]["sec"].get<int32_t>();
-                camera_msg.header.stamp.nanosec =
-                  camera["header"]["stamp"]["nanosec"].get<uint32_t>();
-              }
-            }
-            if (camera.contains("pose")) {
-              if (camera["pose"].contains("position")) {
-                camera_msg.pose.position.x = camera["pose"]["position"]["x"].get<double>();
-                camera_msg.pose.position.y = camera["pose"]["position"]["y"].get<double>();
-                camera_msg.pose.position.z = camera["pose"]["position"]["z"].get<double>();
-              }
-              if (camera["pose"].contains("orientation")) {
-                camera_msg.pose.orientation.x = camera["pose"]["orientation"]["x"].get<double>();
-                camera_msg.pose.orientation.y = camera["pose"]["orientation"]["y"].get<double>();
-                camera_msg.pose.orientation.z = camera["pose"]["orientation"]["z"].get<double>();
-                camera_msg.pose.orientation.w = camera["pose"]["orientation"]["w"].get<double>();
-              }
-            }
-            camera_msg.valid = camera["valid"].get<bool>();
-            msg.camera.push_back(camera_msg);
-          }
+          toCamerasPose(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_slam_interface/msg/PointArrayStamped ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        std_msgs/Header header              # header
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        geometry_msgs/Point[] points        # points array
-          float64 x
-          float64 y
-          float64 z
-        */
         else if (msg_type == "triorb_slam_interface/msg/PointArrayStamped") {
           triorb_slam_interface::msg::PointArrayStamped msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          for (const auto& point : j_msg["points"]) {
-            geometry_msgs::msg::Point point_msg;
-            point_msg.x = point["x"].get<double>();
-            point_msg.y = point["y"].get<double>();
-            point_msg.z = point["z"].get<double>();
-            msg.points.push_back(point_msg);
-          }
+          toPointArrayStamped(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_slam_interface/msg/PoseDevStamped ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        std_msgs/Header header              # header
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        geometry_msgs/Pose pose             # pose array
-          Point position
-            float64 x
-            float64 y
-            float64 z
-          Quaternion orientation
-            float64 x 0
-            float64 y 0
-            float64 z 0
-            float64 w 1
-        bool valid                          # valid
-        */
         else if (msg_type == "triorb_slam_interface/msg/PoseDevStamped") {
           triorb_slam_interface::msg::PoseDevStamped msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          if (j_msg.contains("pose")) {
-            if (j_msg["pose"].contains("position")) {
-              msg.pose.position.x = j_msg["pose"]["position"]["x"].get<double>();
-              msg.pose.position.y = j_msg["pose"]["position"]["y"].get<double>();
-              msg.pose.position.z = j_msg["pose"]["position"]["z"].get<double>();
-            }
-            if (j_msg["pose"].contains("orientation")) {
-              msg.pose.orientation.x = j_msg["pose"]["orientation"]["x"].get<double>();
-              msg.pose.orientation.y = j_msg["pose"]["orientation"]["y"].get<double>();
-              msg.pose.orientation.z = j_msg["pose"]["orientation"]["z"].get<double>();
-              msg.pose.orientation.w = j_msg["pose"]["orientation"]["w"].get<double>();
-            }
-          }
-          msg.valid = j_msg["valid"].get<bool>();
+          toPoseDevStamped(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_slam_interface/msg/UInt32MultiArrayStamped ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        std_msgs/Header header  # header
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        uint32[] data           # data array
-        */
         else if (msg_type ==
                  "triorb_slam_interface/msg/UInt32MultiArrayStamped") {
           triorb_slam_interface::msg::UInt32MultiArrayStamped msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          for (const auto& data : j_msg["data"]) {
-            msg.data.push_back(data.get<uint32_t>());
-          }
+          toUInt32MultiArrayStamped(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_slam_interface/msg/XyArrayStamped ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        std_msgs/Header header  # header
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        uint16[] x              # x array
-        uint16[] y              # y array
-        */
         else if (msg_type == "triorb_slam_interface/msg/XyArrayStamped") {
           triorb_slam_interface::msg::XyArrayStamped msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          for (const auto& x : j_msg["x"]) {
-            msg.x.push_back(x.get<uint16_t>());
-          }
-          for (const auto& y : j_msg["y"]) {
-            msg.y.push_back(y.get<uint16_t>());
-          }
+          toXyArrayStamped(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_static_interface/msg/ClockSync ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==時計同期のためのメッセージ==
-        std_msgs/Header header1     # Header 1
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        std_msgs/Header header2     # Header 2
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        */
         else if (msg_type == "triorb_static_interface/msg/ClockSync") {
           triorb_static_interface::msg::ClockSync msg;
-          if (j_msg.contains("header1")) {
-            msg.header1.frame_id = j_msg["header1"]["frame_id"].get<std::string>();
-            msg.header1.stamp.sec = j_msg["header1"]["stamp"]["sec"].get<int32_t>();
-            msg.header1.stamp.nanosec =
-              j_msg["header1"]["stamp"]["nanosec"].get<uint32_t>();
-          }
-          if (j_msg.contains("header2")) {
-            msg.header2.frame_id = j_msg["header2"]["frame_id"].get<std::string>();
-            msg.header2.stamp.sec = j_msg["header2"]["stamp"]["sec"].get<int32_t>();
-            msg.header2.stamp.nanosec =
-              j_msg["header2"]["stamp"]["nanosec"].get<uint32_t>();
-          }
+          toClockSync(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_static_interface/msg/HostStatus ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==ホストコンピューターのモニター==
-        std_msgs/Header header      # Timestamp
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        float32 memory_percent      # Memory usage
-        float32 cpu_percent         # CPU usage
-        float32 host_temperature    # Temperature of the host computer
-        string wlan_ssid            # SSID of the access point
-        uint8 wlan_signal           # Signal strength of the access point
-        uint32 wlan_freq            # Communication speed of the access point
-        float32 ping                # Ping speed to the default gateway
-        uint8[] gateway             # Address of the default gateway
-        */
         else if (msg_type == "triorb_static_interface/msg/HostStatus") {
           triorb_static_interface::msg::HostStatus msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          msg.memory_percent = j_msg["memory_percent"].get<float>();
-          msg.cpu_percent = j_msg["cpu_percent"].get<float>();
-          msg.host_temperature = j_msg["host_temperature"].get<float>();
-          msg.wlan_ssid = j_msg["wlan_ssid"].get<std::string>();
-          msg.wlan_signal = j_msg["wlan_signal"].get<uint8_t>();
-          msg.wlan_freq = j_msg["wlan_freq"].get<uint32_t>();
-          msg.ping = j_msg["ping"].get<float>();
-          for (const auto& gateway : j_msg["gateway"]) {
-            msg.gateway.push_back(gateway.get<uint8_t>());
-          }
+          toHostStatus(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_static_interface/msg/NodeInfo ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==ROS2ノードの状態==
-        string name # Node name
-        string state # Node state ( sleep | wakeup | awake )
-        */
         else if (msg_type == "triorb_static_interface/msg/NodeInfo") {
           triorb_static_interface::msg::NodeInfo msg;
-          msg.name = j_msg["name"].get<std::string>();
-          msg.state = j_msg["state"].get<std::string>();
+          toNodeInfo(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_static_interface/msg/RobotError ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        std_msgs/Header header      # Timestamp
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        uint8 error                 # error code
-        */
         else if (msg_type == "triorb_static_interface/msg/RobotError") {
           triorb_static_interface::msg::RobotError msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          msg.error = j_msg["error"].get<uint8_t>();
+          toRobotError(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_static_interface/msg/RobotStatus ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==ロボットの状態==
-        std_msgs/Header header  # timestamp
-          builtin_interfaces/Time stamp
-            int32 sec
-            uint32 nanosec
-          string frame_id
-        float32 voltage         # main power supply voltage
-        uint16 btns             # Remote control operation status (bit flag)
-        uint16 state            # Robot operation state (bit flag)
-        uint16 error            # Error status of the robot (bit flag)
-        float32 battery         # Battery level (0.0 - 1.0)
-  
-        #---Remote control operation status (bit flag)---
-        # 0x8000: Remote control Y button
-        # 0x4000: Remote control B button
-        # 0x2000: Remote control A button
-        # 0x1000: Remote control X button
-  
-        #---Robot operation state (bit flag)---
-        # 0x8000: Motor is being excited
-        # 0x4000: Accepting move instruction
-        # 0x2000: Moving
-        # 0x1000: Self-position recognition in progress
-        # 0x0800: Generating map
-        # 0x0400: During anti-collision control
-        # 0x0200: Position control move completed
-        # 0x0010: Emergency stop is working
-        # 0x0001: Status obtained successfully
-  
-        #---Error status of the robot (bit flag)---
-        # 0x8000: Motor connection error
-        # 0x4000: IMU and distance sensor connection error
-        # 0x2000: Camera connection error
-        # 0x1000: Main power supply voltage abnormal
-        # 0x0001: Control ECU connection error
-        */
         else if (msg_type == "triorb_static_interface/msg/RobotStatus") {
           triorb_static_interface::msg::RobotStatus msg;
-          if (j_msg.contains("header")) {
-            msg.header.frame_id = j_msg["header"]["frame_id"].get<std::string>();
-            if (j_msg["header"].contains("stamp")) {
-              msg.header.stamp.sec = j_msg["header"]["stamp"]["sec"].get<int32_t>();
-              msg.header.stamp.nanosec =
-                j_msg["header"]["stamp"]["nanosec"].get<uint32_t>();
-            }
-          }
-          msg.voltage = j_msg["voltage"].get<float>();
-          msg.btns = j_msg["btns"].get<uint16_t>();
-          msg.state = j_msg["state"].get<uint16_t>();
-          msg.error = j_msg["error"].get<uint16_t>();
-          msg.battery = j_msg["battery"].get<float>();
+          toRobotStatus(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_static_interface/msg/SettingIPv4 ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==TCP/IPv4==
-        string device # device name
-        string method # device mode: auto | manual | shared | disabled
-        uint8[] adress # IP adress
-        uint8 mask # Subnet mask
-        uint8[] gateway # Default gateway adress
-        uint8[] mac # Hardware adress
-        */
         else if (msg_type == "triorb_static_interface/msg/SettingIPv4") {
           triorb_static_interface::msg::SettingIPv4 msg;
-          msg.device = j_msg["device"].get<std::string>();
-          msg.method = j_msg["method"].get<std::string>();
-          for (const auto& address : j_msg["adress"]) {
-            msg.adress.push_back(address.get<uint8_t>());
-          }
-          msg.mask = j_msg["mask"].get<uint8_t>();
-          for (const auto& gateway : j_msg["gateway"]) {
-            msg.gateway.push_back(gateway.get<uint8_t>());
-          }
-          for (const auto& mac : j_msg["mac"]) {
-            msg.mac.push_back(mac.get<uint8_t>());
-          }
+          toSettingIPv4(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_static_interface/msg/SettingROS ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==ROS2環境==
-        bool ros_localhost_only # ROS_LOCALHOST_ONLY
-        uint16 ros_domain_id # ROS_DOMAIN_ID
-        string ros_prefix # ROS_PREFIX
-        */
         else if (msg_type == "triorb_static_interface/msg/SettingROS") {
           triorb_static_interface::msg::SettingROS msg;
-          msg.ros_localhost_only = j_msg["ros_localhost_only"].get<bool>();
-          msg.ros_domain_id = j_msg["ros_domain_id"].get<uint16_t>();
-          msg.ros_prefix = j_msg["ros_prefix"].get<std::string>();
+          toSettingROS(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_static_interface/msg/SettingSSID ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        #==無線LAN設定==
-        string ssid # Wi-Fi SSID name
-        string passphrase # Wi-Fi passphrase
-        string security # Wi-Fi security type
-        uint8 signal # Signal strength (0-100)
-        */
         else if (msg_type == "triorb_static_interface/msg/SettingSSID") {
           triorb_static_interface::msg::SettingSSID msg;
-          msg.ssid = j_msg["ssid"].get<std::string>();
-          msg.passphrase = j_msg["passphrase"].get<std::string>();
-          msg.security = j_msg["security"].get<std::string>();
-          msg.signal = j_msg["signal"].get<uint8_t>();
+          toSettingSSID(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
-        /*
-        === triorb_static_interface/msg/StringList ===
-        #**
-        #* Copyright 2023 TriOrb Inc.
-        #*
-        #* Licensed under the Apache License, Version 2.0 (the "License");
-        #* you may not use this file except in compliance with the License.
-        #* You may obtain a copy of the License at
-        #*
-        #*     http://www.apache.org/licenses/LICENSE-2.0
-        #*
-        #* Unless required by applicable law or agreed to in writing, software
-        #* distributed under the License is distributed on an "AS IS" BASIS,
-        #* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-        implied.
-        #* See the License for the specific language governing permissions and
-        #* limitations under the License.
-        #**
-  
-        string[] strings
-        */
         else if (msg_type == "triorb_static_interface/msg/StringList") {
           triorb_static_interface::msg::StringList msg;
-          for (const auto& str : j_msg["strings"]) {
-            msg.strings.push_back(str.get<std::string>());
-          }
+          toStringList(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
   #endif  // HAVE_TRIORB_INTERFACE
