@@ -1,4 +1,5 @@
 import yaml
+import os
 
 def getTopicType(fname):
     with open(fname) as f:
@@ -100,6 +101,8 @@ def topicToYaml(topics):
         subpub_str += base_txt
 
     print(yaml_dict)
+
+    os.makedirs("params", exist_ok=True)
 
     with open("params/params.ros2.yaml", "w") as f:
         yaml.dump(yaml_dict, f, default_flow_style=False, sort_keys=False)
