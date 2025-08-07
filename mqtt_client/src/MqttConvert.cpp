@@ -188,7 +188,7 @@ namespace mqtt_client {
         }
         if (j_msg.contains("buttons")) {
             for (const auto& button : j_msg["buttons"]) {
-                msg.buttons.push_back(button.get<uint8_t>());
+                msg.buttons.push_back(button.get<int32_t>());
             }
         }
     }
