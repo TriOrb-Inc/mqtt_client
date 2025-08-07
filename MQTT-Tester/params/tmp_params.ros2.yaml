@@ -1,0 +1,1362 @@
+/**/*:
+  ros__parameters:
+    broker:
+      host: localhost
+      port: 1883
+    bridge:
+      ros2mqtt:
+        ros_topics:
+        - /to/Header
+        - /to/Int8MultiArray
+        - /to/UInt8MultiArray
+        - /to/Int16MultiArray
+        - /to/UInt16MultiArray
+        - /to/Int32MultiArray
+        - /to/UInt32MultiArray
+        - /to/Transform
+        - /to/TransformStamped
+        - /to/Vector3
+        - /to/Quaternion
+        - /to/Joy
+        - /to/ParentBind
+        - /to/BoundingBox
+        - /to/Detection
+        - /to/DriveGains
+        - /to/MotorParams
+        - /to/MotorStatus
+        - /to/Route
+        - /to/TriorbAlignPos3
+        - /to/TriorbPos3
+        - /to/TriorbPos3Stamped
+        - /to/TriorbRunPos3
+        - /to/TriorbRunResult
+        - /to/TriorbRunResultStamped
+        - /to/TriorbRunState
+        - /to/TriorbRunSetting
+        - /to/TriorbRunVel3
+        - /to/TriorbRunVel3Stamped
+        - /to/TriorbSetPath
+        - /to/TriorbSetPos3
+        - /to/TriorbSpeed
+        - /to/TriorbVel3
+        - /to/CameraDevice
+        - /to/DistanceSensor
+        - /to/ImuSensor
+        - /to/Obstacles
+        - /to/CamerasLandmarkInfo
+        - /to/CamerasPose
+        - /to/PointArrayStamped
+        - /to/PoseDevStamped
+        - /to/UInt32MultiArrayStamped
+        - /to/XyArrayStamped
+        - /to/ClockSync
+        - /to/HostStatus
+        - /to/NodeInfo
+        - /to/RobotError
+        - /to/RobotStatus
+        - /to/SettingIPv4
+        - /to/SettingROS
+        - /to/SettingSSID
+        - /to/StringList
+        /to/Header:
+          mqtt_topic: to/Header
+          primitive: true
+          ros_type: std_msgs/msg/Header
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/Int8MultiArray:
+          mqtt_topic: to/Int8MultiArray
+          primitive: true
+          ros_type: std_msgs/msg/Int8MultiArray
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/UInt8MultiArray:
+          mqtt_topic: to/UInt8MultiArray
+          primitive: true
+          ros_type: std_msgs/msg/UInt8MultiArray
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/Int16MultiArray:
+          mqtt_topic: to/Int16MultiArray
+          primitive: true
+          ros_type: std_msgs/msg/Int16MultiArray
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/UInt16MultiArray:
+          mqtt_topic: to/UInt16MultiArray
+          primitive: true
+          ros_type: std_msgs/msg/UInt16MultiArray
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/Int32MultiArray:
+          mqtt_topic: to/Int32MultiArray
+          primitive: true
+          ros_type: std_msgs/msg/Int32MultiArray
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/UInt32MultiArray:
+          mqtt_topic: to/UInt32MultiArray
+          primitive: true
+          ros_type: std_msgs/msg/UInt32MultiArray
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/Transform:
+          mqtt_topic: to/Transform
+          primitive: true
+          ros_type: geometry_msgs/msg/Transform
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TransformStamped:
+          mqtt_topic: to/TransformStamped
+          primitive: true
+          ros_type: geometry_msgs/msg/TransformStamped
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/Vector3:
+          mqtt_topic: to/Vector3
+          primitive: true
+          ros_type: geometry_msgs/msg/Vector3
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/Quaternion:
+          mqtt_topic: to/Quaternion
+          primitive: true
+          ros_type: geometry_msgs/msg/Quaternion
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/Joy:
+          mqtt_topic: to/Joy
+          primitive: true
+          ros_type: sensor_msgs/msg/Joy
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/ParentBind:
+          mqtt_topic: to/ParentBind
+          primitive: true
+          ros_type: triorb_collaboration_interface/msg/ParentBind
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/BoundingBox:
+          mqtt_topic: to/BoundingBox
+          primitive: true
+          ros_type: triorb_cv_interface/msg/BoundingBox
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/Detection:
+          mqtt_topic: to/Detection
+          primitive: true
+          ros_type: triorb_cv_interface/msg/Detection
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/DriveGains:
+          mqtt_topic: to/DriveGains
+          primitive: true
+          ros_type: triorb_drive_interface/msg/DriveGains
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/MotorParams:
+          mqtt_topic: to/MotorParams
+          primitive: true
+          ros_type: triorb_drive_interface/msg/MotorParams
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/MotorStatus:
+          mqtt_topic: to/MotorStatus
+          primitive: true
+          ros_type: triorb_drive_interface/msg/MotorStatus
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/Route:
+          mqtt_topic: to/Route
+          primitive: true
+          ros_type: triorb_drive_interface/msg/Route
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TriorbAlignPos3:
+          mqtt_topic: to/TriorbAlignPos3
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbAlignPos3
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TriorbPos3:
+          mqtt_topic: to/TriorbPos3
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbPos3
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TriorbPos3Stamped:
+          mqtt_topic: to/TriorbPos3Stamped
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbPos3Stamped
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TriorbRunPos3:
+          mqtt_topic: to/TriorbRunPos3
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbRunPos3
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TriorbRunResult:
+          mqtt_topic: to/TriorbRunResult
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbRunResult
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TriorbRunResultStamped:
+          mqtt_topic: to/TriorbRunResultStamped
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbRunResultStamped
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TriorbRunState:
+          mqtt_topic: to/TriorbRunState
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbRunState
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TriorbRunSetting:
+          mqtt_topic: to/TriorbRunSetting
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbRunSetting
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TriorbRunVel3:
+          mqtt_topic: to/TriorbRunVel3
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbRunVel3
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TriorbRunVel3Stamped:
+          mqtt_topic: to/TriorbRunVel3Stamped
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbRunVel3Stamped
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TriorbSetPath:
+          mqtt_topic: to/TriorbSetPath
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbSetPath
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TriorbSetPos3:
+          mqtt_topic: to/TriorbSetPos3
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbSetPos3
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TriorbSpeed:
+          mqtt_topic: to/TriorbSpeed
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbSpeed
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/TriorbVel3:
+          mqtt_topic: to/TriorbVel3
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbVel3
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/CameraDevice:
+          mqtt_topic: to/CameraDevice
+          primitive: true
+          ros_type: triorb_sensor_interface/msg/CameraDevice
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/DistanceSensor:
+          mqtt_topic: to/DistanceSensor
+          primitive: true
+          ros_type: triorb_sensor_interface/msg/DistanceSensor
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/ImuSensor:
+          mqtt_topic: to/ImuSensor
+          primitive: true
+          ros_type: triorb_sensor_interface/msg/ImuSensor
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/Obstacles:
+          mqtt_topic: to/Obstacles
+          primitive: true
+          ros_type: triorb_sensor_interface/msg/Obstacles
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/CamerasLandmarkInfo:
+          mqtt_topic: to/CamerasLandmarkInfo
+          primitive: true
+          ros_type: triorb_slam_interface/msg/CamerasLandmarkInfo
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/CamerasPose:
+          mqtt_topic: to/CamerasPose
+          primitive: true
+          ros_type: triorb_slam_interface/msg/CamerasPose
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/PointArrayStamped:
+          mqtt_topic: to/PointArrayStamped
+          primitive: true
+          ros_type: triorb_slam_interface/msg/PointArrayStamped
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/PoseDevStamped:
+          mqtt_topic: to/PoseDevStamped
+          primitive: true
+          ros_type: triorb_slam_interface/msg/PoseDevStamped
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/UInt32MultiArrayStamped:
+          mqtt_topic: to/UInt32MultiArrayStamped
+          primitive: true
+          ros_type: triorb_slam_interface/msg/UInt32MultiArrayStamped
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/XyArrayStamped:
+          mqtt_topic: to/XyArrayStamped
+          primitive: true
+          ros_type: triorb_slam_interface/msg/XyArrayStamped
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/ClockSync:
+          mqtt_topic: to/ClockSync
+          primitive: true
+          ros_type: triorb_static_interface/msg/ClockSync
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/HostStatus:
+          mqtt_topic: to/HostStatus
+          primitive: true
+          ros_type: triorb_static_interface/msg/HostStatus
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/NodeInfo:
+          mqtt_topic: to/NodeInfo
+          primitive: true
+          ros_type: triorb_static_interface/msg/NodeInfo
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/RobotError:
+          mqtt_topic: to/RobotError
+          primitive: true
+          ros_type: triorb_static_interface/msg/RobotError
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/RobotStatus:
+          mqtt_topic: to/RobotStatus
+          primitive: true
+          ros_type: triorb_static_interface/msg/RobotStatus
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/SettingIPv4:
+          mqtt_topic: to/SettingIPv4
+          primitive: true
+          ros_type: triorb_static_interface/msg/SettingIPv4
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/SettingROS:
+          mqtt_topic: to/SettingROS
+          primitive: true
+          ros_type: triorb_static_interface/msg/SettingROS
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/SettingSSID:
+          mqtt_topic: to/SettingSSID
+          primitive: true
+          ros_type: triorb_static_interface/msg/SettingSSID
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+        /to/StringList:
+          mqtt_topic: to/StringList
+          primitive: true
+          ros_type: triorb_static_interface/msg/StringList
+          advanced:
+            ros:
+              queue_size: 1
+              qos:
+                reliability: best_effort
+                durability: volatile
+            mqtt:
+              qos: 0
+              retained: false
+      mqtt2ros:
+        mqtt_topics:
+        - from/Header
+        - from/Int8MultiArray
+        - from/UInt8MultiArray
+        - from/Int16MultiArray
+        - from/UInt16MultiArray
+        - from/Int32MultiArray
+        - from/UInt32MultiArray
+        - from/Transform
+        - from/TransformStamped
+        - from/Vector3
+        - from/Quaternion
+        - from/Joy
+        - from/ParentBind
+        - from/BoundingBox
+        - from/Detection
+        - from/DriveGains
+        - from/MotorParams
+        - from/MotorStatus
+        - from/Route
+        - from/TriorbAlignPos3
+        - from/TriorbPos3
+        - from/TriorbPos3Stamped
+        - from/TriorbRunPos3
+        - from/TriorbRunResult
+        - from/TriorbRunResultStamped
+        - from/TriorbRunState
+        - from/TriorbRunSetting
+        - from/TriorbRunVel3
+        - from/TriorbRunVel3Stamped
+        - from/TriorbSetPath
+        - from/TriorbSetPos3
+        - from/TriorbSpeed
+        - from/TriorbVel3
+        - from/CameraDevice
+        - from/DistanceSensor
+        - from/ImuSensor
+        - from/Obstacles
+        - from/CamerasLandmarkInfo
+        - from/CamerasPose
+        - from/PointArrayStamped
+        - from/PoseDevStamped
+        - from/UInt32MultiArrayStamped
+        - from/XyArrayStamped
+        - from/ClockSync
+        - from/HostStatus
+        - from/NodeInfo
+        - from/RobotError
+        - from/RobotStatus
+        - from/SettingIPv4
+        - from/SettingROS
+        - from/SettingSSID
+        - from/StringList
+        from/Header:
+          ros_topic: /from/Header
+          primitive: true
+          ros_type: std_msgs/msg/Header
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/Int8MultiArray:
+          ros_topic: /from/Int8MultiArray
+          primitive: true
+          ros_type: std_msgs/msg/Int8MultiArray
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/UInt8MultiArray:
+          ros_topic: /from/UInt8MultiArray
+          primitive: true
+          ros_type: std_msgs/msg/UInt8MultiArray
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/Int16MultiArray:
+          ros_topic: /from/Int16MultiArray
+          primitive: true
+          ros_type: std_msgs/msg/Int16MultiArray
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/UInt16MultiArray:
+          ros_topic: /from/UInt16MultiArray
+          primitive: true
+          ros_type: std_msgs/msg/UInt16MultiArray
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/Int32MultiArray:
+          ros_topic: /from/Int32MultiArray
+          primitive: true
+          ros_type: std_msgs/msg/Int32MultiArray
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/UInt32MultiArray:
+          ros_topic: /from/UInt32MultiArray
+          primitive: true
+          ros_type: std_msgs/msg/UInt32MultiArray
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/Transform:
+          ros_topic: /from/Transform
+          primitive: true
+          ros_type: geometry_msgs/msg/Transform
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TransformStamped:
+          ros_topic: /from/TransformStamped
+          primitive: true
+          ros_type: geometry_msgs/msg/TransformStamped
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/Vector3:
+          ros_topic: /from/Vector3
+          primitive: true
+          ros_type: geometry_msgs/msg/Vector3
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/Quaternion:
+          ros_topic: /from/Quaternion
+          primitive: true
+          ros_type: geometry_msgs/msg/Quaternion
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/Joy:
+          ros_topic: /from/Joy
+          primitive: true
+          ros_type: sensor_msgs/msg/Joy
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/ParentBind:
+          ros_topic: /from/ParentBind
+          primitive: true
+          ros_type: triorb_collaboration_interface/msg/ParentBind
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/BoundingBox:
+          ros_topic: /from/BoundingBox
+          primitive: true
+          ros_type: triorb_cv_interface/msg/BoundingBox
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/Detection:
+          ros_topic: /from/Detection
+          primitive: true
+          ros_type: triorb_cv_interface/msg/Detection
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/DriveGains:
+          ros_topic: /from/DriveGains
+          primitive: true
+          ros_type: triorb_drive_interface/msg/DriveGains
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/MotorParams:
+          ros_topic: /from/MotorParams
+          primitive: true
+          ros_type: triorb_drive_interface/msg/MotorParams
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/MotorStatus:
+          ros_topic: /from/MotorStatus
+          primitive: true
+          ros_type: triorb_drive_interface/msg/MotorStatus
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/Route:
+          ros_topic: /from/Route
+          primitive: true
+          ros_type: triorb_drive_interface/msg/Route
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TriorbAlignPos3:
+          ros_topic: /from/TriorbAlignPos3
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbAlignPos3
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TriorbPos3:
+          ros_topic: /from/TriorbPos3
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbPos3
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TriorbPos3Stamped:
+          ros_topic: /from/TriorbPos3Stamped
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbPos3Stamped
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TriorbRunPos3:
+          ros_topic: /from/TriorbRunPos3
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbRunPos3
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TriorbRunResult:
+          ros_topic: /from/TriorbRunResult
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbRunResult
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TriorbRunResultStamped:
+          ros_topic: /from/TriorbRunResultStamped
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbRunResultStamped
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TriorbRunState:
+          ros_topic: /from/TriorbRunState
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbRunState
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TriorbRunSetting:
+          ros_topic: /from/TriorbRunSetting
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbRunSetting
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TriorbRunVel3:
+          ros_topic: /from/TriorbRunVel3
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbRunVel3
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TriorbRunVel3Stamped:
+          ros_topic: /from/TriorbRunVel3Stamped
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbRunVel3Stamped
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TriorbSetPath:
+          ros_topic: /from/TriorbSetPath
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbSetPath
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TriorbSetPos3:
+          ros_topic: /from/TriorbSetPos3
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbSetPos3
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TriorbSpeed:
+          ros_topic: /from/TriorbSpeed
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbSpeed
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/TriorbVel3:
+          ros_topic: /from/TriorbVel3
+          primitive: true
+          ros_type: triorb_drive_interface/msg/TriorbVel3
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/CameraDevice:
+          ros_topic: /from/CameraDevice
+          primitive: true
+          ros_type: triorb_sensor_interface/msg/CameraDevice
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/DistanceSensor:
+          ros_topic: /from/DistanceSensor
+          primitive: true
+          ros_type: triorb_sensor_interface/msg/DistanceSensor
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/ImuSensor:
+          ros_topic: /from/ImuSensor
+          primitive: true
+          ros_type: triorb_sensor_interface/msg/ImuSensor
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/Obstacles:
+          ros_topic: /from/Obstacles
+          primitive: true
+          ros_type: triorb_sensor_interface/msg/Obstacles
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/CamerasLandmarkInfo:
+          ros_topic: /from/CamerasLandmarkInfo
+          primitive: true
+          ros_type: triorb_slam_interface/msg/CamerasLandmarkInfo
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/CamerasPose:
+          ros_topic: /from/CamerasPose
+          primitive: true
+          ros_type: triorb_slam_interface/msg/CamerasPose
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/PointArrayStamped:
+          ros_topic: /from/PointArrayStamped
+          primitive: true
+          ros_type: triorb_slam_interface/msg/PointArrayStamped
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/PoseDevStamped:
+          ros_topic: /from/PoseDevStamped
+          primitive: true
+          ros_type: triorb_slam_interface/msg/PoseDevStamped
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/UInt32MultiArrayStamped:
+          ros_topic: /from/UInt32MultiArrayStamped
+          primitive: true
+          ros_type: triorb_slam_interface/msg/UInt32MultiArrayStamped
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/XyArrayStamped:
+          ros_topic: /from/XyArrayStamped
+          primitive: true
+          ros_type: triorb_slam_interface/msg/XyArrayStamped
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/ClockSync:
+          ros_topic: /from/ClockSync
+          primitive: true
+          ros_type: triorb_static_interface/msg/ClockSync
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/HostStatus:
+          ros_topic: /from/HostStatus
+          primitive: true
+          ros_type: triorb_static_interface/msg/HostStatus
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/NodeInfo:
+          ros_topic: /from/NodeInfo
+          primitive: true
+          ros_type: triorb_static_interface/msg/NodeInfo
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/RobotError:
+          ros_topic: /from/RobotError
+          primitive: true
+          ros_type: triorb_static_interface/msg/RobotError
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/RobotStatus:
+          ros_topic: /from/RobotStatus
+          primitive: true
+          ros_type: triorb_static_interface/msg/RobotStatus
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/SettingIPv4:
+          ros_topic: /from/SettingIPv4
+          primitive: true
+          ros_type: triorb_static_interface/msg/SettingIPv4
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/SettingROS:
+          ros_topic: /from/SettingROS
+          primitive: true
+          ros_type: triorb_static_interface/msg/SettingROS
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/SettingSSID:
+          ros_topic: /from/SettingSSID
+          primitive: true
+          ros_type: triorb_static_interface/msg/SettingSSID
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
+        from/StringList:
+          ros_topic: /from/StringList
+          primitive: true
+          ros_type: triorb_static_interface/msg/StringList
+          advanced:
+            mqtt:
+              qos: 2
+            ros:
+              qos:
+                reliability: reliable
+                durability: volatile
