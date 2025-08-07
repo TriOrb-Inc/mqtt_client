@@ -926,6 +926,8 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
             msg.goal_pos.deg = j_msg["goal_pos"]["deg"].get<float>();
           }
           msg.state = j_msg["state"].get<uint8_t>();
+          msg.cap_vxy = j_msg["cap_vxy"].get<uint8_t>();
+          msg.cap_vw  = j_msg["cap_vw"].get<uint8_t>();
           serializeRosMessage(msg, serialized_msg);
         }
 
@@ -2921,6 +2923,8 @@ bool primitiveRosMessageToString(
       j_msg["goal_pos"]["y"] = msg.goal_pos.y;
       j_msg["goal_pos"]["deg"] = msg.goal_pos.deg;
       j_msg["state"] = msg.state;
+      j_msg["cap_vxy"] = msg.cap_vxy;
+      j_msg["cap_vw"] = msg.cap_vw;
     }
 
     /*
