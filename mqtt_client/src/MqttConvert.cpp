@@ -613,10 +613,14 @@ namespace mqtt_client {
             toTriorbPos3(j_msg["goal_pos"], msg.goal_pos);
         }
         msg.state = j_msg["state"].get<uint8_t>();
+        msg.cap_vxy = j_msg["cap_vxy"].get<float>();
+        msg.cap_vw  = j_msg["cap_vw"].get<float>();
     }
     void fromTriorbRunState(const triorb_drive_interface::msg::TriorbRunState &msg, json &j_msg) {
         fromTriorbPos3(msg.goal_pos, j_msg["goal_pos"]);
         j_msg["state"] = msg.state;
+        j_msg["cap_vxy"] = msg.cap_vxy;
+        j_msg["cap_vw"] = msg.cap_vw;
     }
     /*
     === triorb_drive_interface/msg/TriorbRunSetting ===
