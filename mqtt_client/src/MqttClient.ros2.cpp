@@ -396,7 +396,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
           }
           if (j_msg.contains("buttons")) {
             for (const auto& button : j_msg["buttons"]) {
-              msg.buttons.push_back(button.get<uint8_t>());
+              msg.buttons.push_back(button.get<int32_t>());
             }
           }
           serializeRosMessage(msg, serialized_msg);
