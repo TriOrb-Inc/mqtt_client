@@ -558,6 +558,16 @@ class MqttClient : public rclcpp::Node,
    * Message length of a serialized `builtin_interfaces::msg::Time` message
    */
   uint32_t stamp_length_;
+
+  /**
+   * @brief Prefix for MQTT topics
+   */
+  std::string topic_prefix_mqtt_;
+
+  /**
+   * @brief Prefix for ROS topics
+   */
+  std::string topic_prefix_ros_;
 };
 
 
