@@ -618,16 +618,6 @@ class MqttClient : public rclcpp::Node,
    */
   uint32_t stamp_length_;
 
-  /**
-   * @brief Prefix for MQTT topics
-   */
-  std::string topic_prefix_mqtt_;
-
-  /**
-   * @brief Prefix for ROS topics
-   */
-  std::string topic_prefix_ros_;
-  
 #ifdef HAVE_TRIORB_INTERFACE
   /**
    * @brief TriOrb ExceptHandler
