@@ -1,0 +1,19 @@
+<launch>
+
+  <arg name="namespace" default="" />
+  <arg name="node_name" default="mqtt_client" />
+  <arg name="params_file" default="$(find-pkg-share mqtt_client)/config/params.ros2.yaml" />
+  <arg name="broker_host" default="localhost" />
+  <arg name="broker_port" default="1883" />
+  <arg name="prefix_mqtt" default="" />
+  <arg name="prefix_ros" default="" />
+
+  <node pkg="mqtt_client" exec="mqtt_client" name="$(var node_name)" namespace="$(var namespace)" output="screen">
+    <param from="$(var params_file)" />
+    <param name="broker.host" value="$(var broker_host)" />
+    <param name="broker.port" value="$(var broker_port)" />
+    <param name="prefix.mqtt" value="$(var prefix_mqtt)" />
+    <param name="prefix.ros" value="$(var prefix_ros)" />
+  </node>
+
+</launch>
