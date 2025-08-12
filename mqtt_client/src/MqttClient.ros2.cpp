@@ -70,8 +70,8 @@ SOFTWARE.
 #ifdef HAVE_TRIORB_INTERFACE
 #include <string>
 #include <regex>
-#define GET_NODE_NAME(s) std::regex_replace(std::string(getenv("ROS_PREFIX")) + std::string("_") + std::string(s), std::regex("^_"), "")
-#define GET_TOPIC_NAME(s) std::regex_replace(std::string(getenv("ROS_PREFIX")) + std::string(s), std::regex("//"), "/")
+#define GET_NODE_NAME(s) std::regex_replace(std::string(getenv("ROS_PREFIX") ? getenv("ROS_PREFIX") : "") + std::string("_") + std::string(s), std::regex("^_"), "")
+#define GET_TOPIC_NAME(s) std::regex_replace(std::string(getenv("ROS_PREFIX") ? getenv("ROS_PREFIX") : "") + std::string(s), std::regex("//"), "/")
 
 #include <triorb_collaboration_interface/msg/parent_bind.hpp>
 

@@ -31,8 +31,10 @@ using std::placeholders::_2;
 
 #include <string>
 #include <regex>
-#define GET_NODE_NAME(s) std::regex_replace(std::string(getenv("ROS_PREFIX")) + std::string("_") + std::string(s), std::regex("^_"), "")
-#define GET_TOPIC_NAME(s) std::regex_replace(std::string(getenv("ROS_PREFIX")) + std::string(s), std::regex("//"), "/")
+// clang-format off
+#define GET_NODE_NAME(s) std::regex_replace(std::string(getenv("ROS_PREFIX") ? getenv("ROS_PREFIX") : "") + std::string("_") + std::string(s), std::regex("^_"), "")
+#define GET_TOPIC_NAME(s) std::regex_replace(std::string(getenv("ROS_PREFIX") ? getenv("ROS_PREFIX") : "") + std::string(s), std::regex("//"), "/")
+// clang-format on
 
 // 環境変数を取得し、nullならデフォルト値を返す関数
 std::string getEnvOrDefault(const std::string& varName, const std::string& defaultValue) {
