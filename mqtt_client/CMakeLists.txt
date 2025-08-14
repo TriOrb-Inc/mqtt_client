@@ -21,6 +21,10 @@ if(${ROS_VERSION} EQUAL 2)
   find_package(rclcpp REQUIRED)
   find_package(rclcpp_components REQUIRED)
   find_package(std_msgs REQUIRED)
+  find_package(geometry_msgs REQUIRED)
+  find_package(sensor_msgs REQUIRED)
+  find_package(nlohmann_json REQUIRED)
+
 
   # Paho MQTT C++ apt package doesn't include CMake config
   # find_package(PahoMqttCpp REQUIRED)
@@ -41,14 +45,34 @@ if(${ROS_VERSION} EQUAL 2)
   target_link_libraries(${PROJECT_NAME}_lib
     ${PahoMqttC_LIBRARY}
     ${PahoMqttCpp_LIBRARY}
+    nlohmann_json::nlohmann_json
   )
-
   ament_target_dependencies(${PROJECT_NAME}_lib
     fmt
     mqtt_client_interfaces
     rclcpp
     rclcpp_components
     std_msgs
+    geometry_msgs
+  )
+  
+  # TriOrb
+  add_definitions(-DHAVE_TRIORB_INTERFACE)
+  find_package(triorb_drive_interface REQUIRED)
+  find_package(triorb_cv_interface REQUIRED)
+  find_package(triorb_project_interface REQUIRED)
+  find_package(triorb_sensor_interface REQUIRED)
+  find_package(triorb_static_interface REQUIRED)
+  find_package(triorb_slam_interface REQUIRED)
+  find_package(triorb_collaboration_interface REQUIRED)
+  ament_target_dependencies(${PROJECT_NAME}_lib
+    triorb_drive_interface
+    triorb_cv_interface
+    triorb_project_interface
+    triorb_sensor_interface
+    triorb_static_interface
+    triorb_slam_interface
+    triorb_collaboration_interface
   )
 
   install(TARGETS ${PROJECT_NAME}_lib
