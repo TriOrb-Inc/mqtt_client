@@ -1199,6 +1199,17 @@ namespace mqtt_client {
         }
     }
 
+    void toSlamStatus(const json& j_msg, triorb_slam_interface::msg::SlamStatus &msg) {
+        msg.map_name = j_msg["map_name"].get<std::string>();
+        msg.state = j_msg["state"].get<uint8_t>();
+        msg.error = j_msg["error"].get<uint8_t>();
+    }
+    void fromSlamStatus(const triorb_slam_interface::msg::SlamStatus &msg, json &j_msg) {
+        j_msg["map_name"] = msg.map_name;
+        j_msg["state"] = msg.state;
+        j_msg["error"] = msg.error;
+    }
+
     /*
     === triorb_static_interface/msg/ClockSync ===
     #==時計同期のためのメッセージ==

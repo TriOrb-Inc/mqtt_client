@@ -409,6 +409,11 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
           toXyArrayStamped(j_msg, msg);
           serializeRosMessage(msg, serialized_msg);
         }
+        else if (msg_type == "triorb_slam_interface/msg/SlamStatus") {
+          triorb_slam_interface::msg::SlamStatus msg;
+          toSlamStatus(j_msg, msg);
+          serializeRosMessage(msg, serialized_msg);
+        }
         else if (msg_type == "triorb_static_interface/msg/ClockSync") {
           triorb_static_interface::msg::ClockSync msg;
           toClockSync(j_msg, msg);
@@ -786,6 +791,11 @@ bool primitiveRosMessageToString(
       triorb_slam_interface::msg::XyArrayStamped msg;
       deserializeRosMessage(*serialized_msg, msg);
       fromXyArrayStamped(msg, j_msg);
+    }
+    else if (msg_type == "triorb_slam_interface/msg/SlamStatus") {
+      triorb_slam_interface::msg::SlamStatus msg;
+      deserializeRosMessage(*serialized_msg, msg);
+      fromSlamStatus(msg, j_msg);
     }
     else if (msg_type == "triorb_static_interface/msg/ClockSync") {
       triorb_static_interface::msg::ClockSync msg;

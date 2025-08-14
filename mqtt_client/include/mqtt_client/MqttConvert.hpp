@@ -85,6 +85,7 @@ SOFTWARE.
 #include <triorb_slam_interface/msg/pose_dev_stamped.hpp>
 #include <triorb_slam_interface/msg/u_int32_multi_array_stamped.hpp>
 #include <triorb_slam_interface/msg/xy_array_stamped.hpp>
+#include <triorb_slam_interface/msg/slam_status.hpp>
 
 #include <triorb_static_interface/msg/clock_sync.hpp>
 #include <triorb_static_interface/msg/host_status.hpp>
@@ -159,6 +160,7 @@ namespace mqtt_client {
   void toPoseDevStamped(const json& j_msg, triorb_slam_interface::msg::PoseDevStamped &msg);
   void toUInt32MultiArrayStamped(const json& j_msg, triorb_slam_interface::msg::UInt32MultiArrayStamped &msg);
   void toXyArrayStamped(const json& j_msg, triorb_slam_interface::msg::XyArrayStamped &msg);
+  void toSlamStatus(const json& j_msg, triorb_slam_interface::msg::SlamStatus &msg);
 
   void toClockSync(const json& j_msg, triorb_static_interface::msg::ClockSync &msg);
   void toHostStatus(const json& j_msg, triorb_static_interface::msg::HostStatus &msg);
@@ -225,6 +227,7 @@ namespace mqtt_client {
   void fromPoseDevStamped(const triorb_slam_interface::msg::PoseDevStamped& msg, json& j_msg);
   void fromUInt32MultiArrayStamped(const triorb_slam_interface::msg::UInt32MultiArrayStamped& msg, json& j_msg);
   void fromXyArrayStamped(const triorb_slam_interface::msg::XyArrayStamped& msg, json& j_msg);
+  void fromSlamStatus(const triorb_slam_interface::msg::SlamStatus& msg, json& j_msg);
 
   void fromClockSync(const triorb_static_interface::msg::ClockSync& msg, json& j_msg);
   void fromHostStatus(const triorb_static_interface::msg::HostStatus& msg, json& j_msg);
