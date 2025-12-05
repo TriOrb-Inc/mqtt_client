@@ -1327,6 +1327,7 @@ namespace mqtt_client {
     uint16 state            # Robot operation state (bit flag)
     uint16 error            # Error status of the robot (bit flag)
     float32 battery         # Battery level (0.0 - 1.0)
+    int8 collab_id          # collab group id (-1: no group)
     */
     void toRobotStatus(const json& j_msg, triorb_static_interface::msg::RobotStatus &msg) {
         if (j_msg.contains("header")) {
@@ -1337,6 +1338,7 @@ namespace mqtt_client {
         msg.state = j_msg["state"].get<uint16_t>();
         msg.error = j_msg["error"].get<uint16_t>();
         msg.battery = j_msg["battery"].get<float>();
+        msg.collab_id = j_msg["collab_id"].get<int8_t>();
     }
     void fromRobotStatus(const triorb_static_interface::msg::RobotStatus &msg, json &j_msg) {
         fromHeader(msg.header, j_msg["header"]);
@@ -1345,6 +1347,7 @@ namespace mqtt_client {
         j_msg["state"] = msg.state;
         j_msg["error"] = msg.error;
         j_msg["battery"] = msg.battery;
+        j_msg["collab_id"] = msg.collab_id;
     }
     /*
     === triorb_static_interface/msg/SettingIPv4 ===
