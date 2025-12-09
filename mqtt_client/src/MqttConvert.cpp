@@ -1338,7 +1338,9 @@ namespace mqtt_client {
         msg.state = j_msg["state"].get<uint16_t>();
         msg.error = j_msg["error"].get<uint16_t>();
         msg.battery = j_msg["battery"].get<float>();
-        msg.collab_id = j_msg["collab_id"].get<int8_t>();
+        msg.collab_id = j_msg["collab_id"].get<std::string>();
+        msg.manual_mode = j_msg["manual_mode"].get<bool>();
+        msg.auto_mode = j_msg["auto_mode"].get<bool>();
     }
     void fromRobotStatus(const triorb_static_interface::msg::RobotStatus &msg, json &j_msg) {
         fromHeader(msg.header, j_msg["header"]);
@@ -1348,6 +1350,8 @@ namespace mqtt_client {
         j_msg["error"] = msg.error;
         j_msg["battery"] = msg.battery;
         j_msg["collab_id"] = msg.collab_id;
+        j_msg["manual_mode"] = msg.manual_mode;
+        j_msg["auto_mode"] = msg.auto_mode;
     }
     /*
     === triorb_static_interface/msg/SettingIPv4 ===
