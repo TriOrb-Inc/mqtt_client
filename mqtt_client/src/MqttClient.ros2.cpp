@@ -1747,7 +1747,7 @@ bool primitiveRosMessageToString(
       RCLCPP_ERROR(get_logger(), "Connection to broker failed: %s", e.what());
 #ifdef HAVE_TRIORB_INTERFACE
       std_msgs::msg::String _msg; _msg.data = "mqtt_client / Connection to broker failed";
-      this->pub_except_error_str_add_->publish(_msg);
+      this->pub_except_warn_str_add_->publish(_msg);
 #endif // HAVE_TRIORB_INTERFACE
       exit(EXIT_FAILURE);
     }
@@ -2546,7 +2546,7 @@ bool primitiveRosMessageToString(
       token.get_return_code());
 #ifdef HAVE_TRIORB_INTERFACE
     std_msgs::msg::String _msg; _msg.data = "mqtt_client / Connection to broker failed, will automatically retry...";
-    this->pub_except_error_str_add_->publish(_msg);
+    this->pub_except_warn_str_add_->publish(_msg);
 #endif // HAVE_TRIORB_INTERFACE
 
     is_connected_ = false;
