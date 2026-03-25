@@ -27,8 +27,10 @@ SOFTWARE.
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <random>
 #include <stdexcept>
 #include <vector>
 
@@ -59,6 +61,31 @@ RCLCPP_COMPONENTS_REGISTER_NODE(mqtt_client::MqttClient)
 
 
 namespace mqtt_client {
+
+namespace {
+
+constexpr auto kMqttRecoveryWatchdogPeriod = std::chrono::seconds(1);
+constexpr auto kMqttRecoveryTimeout = std::chrono::seconds(30);
+constexpr int kDefaultClientBufferSize = 2000;
+constexpr char kDefaultClientIdPrefix[] = "triorb_mqtt_";
+constexpr char kDefaultClientBufferRoot[] = "mqtt_client_buffer";
+
+std::string generateRandomClientId() {
+
+  static constexpr char kAlphabet[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+  thread_local std::mt19937 generator(std::random_device{}());
+  std::uniform_int_distribution<std::size_t> distribution(
+    0, sizeof(kAlphabet) - 2);
+
+  std::string client_id(kDefaultClientIdPrefix);
+  client_id.reserve(client_id.size() + 16);
+  for (int i = 0; i < 16; ++i)
+    client_id.push_back(kAlphabet[distribution(generator)]);
+
+  return client_id;
+}
+
+}  // namespace
 
 
 const std::string MqttClient::kRosMsgTypeMqttTopicPrefix =
@@ -1075,14 +1102,22 @@ bool primitiveRosMessageToString(
     // load client parameters from parameter server
     std::string client_buffer_directory, client_tls_certificate, client_tls_key;
     loadParameter("client.id", client_config_.id, "");
-    client_config_.buffer.enabled = !client_config_.id.empty();
-    if (client_config_.buffer.enabled) {
-      loadParameter("client.buffer.size", client_config_.buffer.size, 0);
-      loadParameter("client.buffer.directory", client_buffer_directory,
-                    "buffer");
-    } else {
+    if (client_config_.id.empty()) {
+      client_config_.id = generateRandomClientId();
+      RCLCPP_INFO(get_logger(), "Generated MQTT client ID '%s'",
+                  client_config_.id.c_str());
+    }
+    loadParameter("client.buffer.size", client_config_.buffer.size,
+                  kDefaultClientBufferSize);
+    client_config_.buffer.enabled = client_config_.buffer.size > 0;
+    loadParameter(
+      "client.buffer.directory", client_buffer_directory,
+      (std::filesystem::path(kDefaultClientBufferRoot) / client_config_.id)
+        .string());
+    if (!client_config_.buffer.enabled) {
       RCLCPP_WARN(get_logger(),
-                  "Client buffer can not be enabled when client ID is empty");
+                  "Client buffer disabled because client.buffer.size=%d",
+                  client_config_.buffer.size);
     }
     if (loadParameter("client.last_will.topic",
                       client_config_.last_will.topic)) {
@@ -1092,7 +1127,7 @@ bool primitiveRosMessageToString(
       loadParameter("client.last_will.retained",
                     client_config_.last_will.retained, false);
     }
-    loadParameter("client.clean_session", client_config_.clean_session, true);
+    loadParameter("client.clean_session", client_config_.clean_session, false);
     loadParameter("client.keep_alive_interval",
                   client_config_.keep_alive_interval, 60.0);
     loadParameter("client.max_inflight", client_config_.max_inflight, 65535);
@@ -1118,9 +1153,25 @@ bool primitiveRosMessageToString(
                 
     // resolve filepaths
     broker_config_.tls.ca_certificate = resolvePath(broker_tls_ca_certificate);
-    client_config_.buffer.directory = resolvePath(client_buffer_directory);
+    client_config_.buffer.directory = resolvePath(client_buffer_directory, false);
     client_config_.tls.certificate = resolvePath(client_tls_certificate);
     client_config_.tls.key = resolvePath(client_tls_key);
+    if (client_config_.buffer.enabled) {
+      try {
+        std::filesystem::create_directories(client_config_.buffer.directory);
+      } catch (const std::filesystem::filesystem_error& e) {
+        RCLCPP_ERROR(
+          get_logger(),
+          "Failed to create MQTT buffer directory '%s': %s",
+          client_config_.buffer.directory.string().c_str(), e.what());
+#ifdef HAVE_TRIORB_INTERFACE
+        std_msgs::msg::String _msg;
+        _msg.data = "mqtt_client / Failed to create MQTT buffer directory";
+        this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
+        std::exit(EXIT_FAILURE);
+      }
+    }
 
     // parse bridge parameters
 
@@ -1420,7 +1471,7 @@ bool primitiveRosMessageToString(
 
 
   std::filesystem::path MqttClient::resolvePath(
-    const std::string& path_string) {
+    const std::string& path_string, const bool warn_if_missing) {
 
     std::filesystem::path path(path_string);
     if (path_string.empty()) return path;
@@ -1431,7 +1482,7 @@ bool primitiveRosMessageToString(
       path = std::filesystem::path(ros_home);
       path.append(path_string);
     }
-    if (!std::filesystem::exists(path))
+    if (warn_if_missing && !std::filesystem::exists(path))
       RCLCPP_WARN(get_logger(), "Requested path '%s' does not exist",
                   std::string(path).c_str());
     return path;
@@ -1451,6 +1502,10 @@ bool primitiveRosMessageToString(
 
     // connect to MQTT broker
     connect();
+
+    mqtt_recovery_watchdog_timer_ =
+      create_wall_timer(kMqttRecoveryWatchdogPeriod,
+                        std::bind(&MqttClient::mqttRecoveryWatchdog, this));
 
     // create ROS service server
     is_connected_service_ =
@@ -1754,6 +1809,79 @@ bool primitiveRosMessageToString(
   }
 
 
+  void MqttClient::markMqttUnhealthy(const std::string& reason) {
+
+    std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
+    if (!mqtt_unhealthy_since_)
+      mqtt_unhealthy_since_ = std::chrono::steady_clock::now();
+    mqtt_unhealthy_reason_ = reason;
+  }
+
+
+  void MqttClient::clearMqttUnhealthy() {
+
+    std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
+    mqtt_unhealthy_since_.reset();
+    mqtt_unhealthy_reason_.clear();
+  }
+
+
+  bool MqttClient::shouldWatchdogMqttRc(const int rc) const {
+
+    return rc == MQTTASYNC_DISCONNECTED ||
+           rc == MQTTASYNC_MAX_MESSAGES_INFLIGHT ||
+           rc == MQTTASYNC_NO_MORE_MSGIDS ||
+           rc == MQTTASYNC_MAX_BUFFERED_MESSAGES;
+  }
+
+
+  size_t MqttClient::pendingDeliveryTokenCount() const {
+
+    if (!client_) return 0;
+
+    try {
+      return client_->get_pending_delivery_tokens().size();
+    } catch (const mqtt::exception&) {
+      return 0;
+    }
+  }
+
+
+  void MqttClient::mqttRecoveryWatchdog() {
+
+    std::optional<std::chrono::steady_clock::time_point> unhealthy_since;
+    std::string unhealthy_reason;
+
+    {
+      std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
+      unhealthy_since = mqtt_unhealthy_since_;
+      unhealthy_reason = mqtt_unhealthy_reason_;
+    }
+
+    if (!unhealthy_since) return;
+
+    const auto elapsed = std::chrono::steady_clock::now() - *unhealthy_since;
+    if (elapsed < kMqttRecoveryTimeout) return;
+
+    const auto elapsed_sec =
+      std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
+    const auto pending_delivery_tokens = pendingDeliveryTokenCount();
+
+    RCLCPP_ERROR(
+      get_logger(),
+      "MQTT client stayed unhealthy for %ld seconds (reason='%s', "
+      "pending_delivery_tokens=%zu). Exiting for supervisor restart.",
+      elapsed_sec, unhealthy_reason.c_str(), pending_delivery_tokens);
+#ifdef HAVE_TRIORB_INTERFACE
+    std_msgs::msg::String _msg;
+    _msg.data = "mqtt_client / MQTT recovery watchdog timeout";
+    this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
+    rclcpp::shutdown();
+    std::exit(EXIT_FAILURE);
+  }
+
+
   void MqttClient::ros2mqtt(
     const std::shared_ptr<rclcpp::SerializedMessage>& serialized_msg,
     const std::string& ros_topic) {
@@ -1810,11 +1938,22 @@ bool primitiveRosMessageToString(
           mqtt::make_message(mqtt_topic, msg_type_buffer.data(),
                              msg_type_buffer.size(), ros2mqtt.mqtt.qos, true);
         client_->publish(mqtt_msg);
+        clearMqttUnhealthy();
       } catch (const mqtt::exception& e) {
+        const auto pending_delivery_tokens = pendingDeliveryTokenCount();
         RCLCPP_WARN(get_logger(),
                     "Publishing ROS message type information to MQTT topic "
-                    "'%s' failed: %s",
-                    mqtt_topic.c_str(), e.what());
+                    "'%s' failed: rc=%d reason=%d is_connected=%s "
+                    "pending_delivery_tokens=%zu: %s",
+                    mqtt_topic.c_str(), e.get_return_code(),
+                    e.get_reason_code(),
+                    client_ && client_->is_connected() ? "true" : "false",
+                    pending_delivery_tokens, e.what());
+        if (shouldWatchdogMqttRc(e.get_return_code())) {
+          markMqttUnhealthy(fmt::format(
+            "type publish failed on {} with rc={}", mqtt_topic,
+            e.get_return_code()));
+        }
       }
 
       // build MQTT payload for ROS message (R) as [R]
@@ -1891,11 +2030,21 @@ bool primitiveRosMessageToString(
         mqtt_topic, payload_buffer.data(), payload_buffer.size(),
         ros2mqtt.mqtt.qos, ros2mqtt.mqtt.retained);
       client_->publish(mqtt_msg);
+      clearMqttUnhealthy();
     } catch (const mqtt::exception& e) {
+      const auto pending_delivery_tokens = pendingDeliveryTokenCount();
       RCLCPP_WARN(
         get_logger(),
-        "Publishing ROS message type information to MQTT topic '%s' failed: %s",
-        mqtt_topic.c_str(), e.what());
+        "Publishing ROS message to MQTT topic '%s' failed: rc=%d reason=%d "
+        "is_connected=%s pending_delivery_tokens=%zu: %s",
+        mqtt_topic.c_str(), e.get_return_code(), e.get_reason_code(),
+        client_ && client_->is_connected() ? "true" : "false",
+        pending_delivery_tokens, e.what());
+      if (shouldWatchdogMqttRc(e.get_return_code())) {
+        markMqttUnhealthy(fmt::format(
+          "data publish failed on {} with rc={}", mqtt_topic,
+          e.get_return_code()));
+      }
     }
   }
 
@@ -2124,7 +2273,11 @@ bool primitiveRosMessageToString(
 
     (void)cause;  // Avoid compiler warning for unused parameter.
 
-    is_connected_ = true;
+    {
+      std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
+      is_connected_ = true;
+    }
+    clearMqttUnhealthy();
     std::string as_client =
       client_config_.id.empty()
         ? ""
@@ -2163,13 +2316,18 @@ bool primitiveRosMessageToString(
     std_msgs::msg::String _msg; _msg.data = "mqtt_client / Connection to broker lost";
     this->pub_except_error_str_add_->publish(_msg);
 #endif // HAVE_TRIORB_INTERFACE
-    is_connected_ = false;
+    {
+      std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
+      is_connected_ = false;
+    }
+    markMqttUnhealthy("connection_lost callback");
     connect();
   }
 
 
   bool MqttClient::isConnected() {
 
+    std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
     return is_connected_;
   }
 
@@ -2533,23 +2691,33 @@ bool primitiveRosMessageToString(
   void MqttClient::on_success(const mqtt::token& token) {
 
     (void)token;  // Avoid compiler warning for unused parameter.
-    is_connected_ = true;
+    {
+      std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
+      is_connected_ = true;
+    }
+    clearMqttUnhealthy();
   }
 
 
   void MqttClient::on_failure(const mqtt::token& token) {
 
+    const auto pending_delivery_tokens = pendingDeliveryTokenCount();
     RCLCPP_ERROR(
       get_logger(),
-      "Connection to broker failed (return code %d), will automatically "
-      "retry...",
-      token.get_return_code());
+      "Connection to broker failed (return code %d, pending_delivery_tokens=%zu), "
+      "will automatically retry...",
+      token.get_return_code(), pending_delivery_tokens);
 #ifdef HAVE_TRIORB_INTERFACE
     std_msgs::msg::String _msg; _msg.data = "mqtt_client / Connection to broker failed, will automatically retry...";
     this->pub_except_warn_str_add_->publish(_msg);
 #endif // HAVE_TRIORB_INTERFACE
 
-    is_connected_ = false;
+    {
+      std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
+      is_connected_ = false;
+    }
+    markMqttUnhealthy(
+      fmt::format("action listener failure rc={}", token.get_return_code()));
   }
   
 }  // namespace mqtt_client

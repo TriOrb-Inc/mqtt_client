@@ -189,7 +189,8 @@ class MqttClient : public rclcpp::Node,
    *
    * @return  std::filesystem::path  path variable
    */
-  std::filesystem::path resolvePath(const std::string& path_string);
+  std::filesystem::path resolvePath(const std::string& path_string,
+                                    bool warn_if_missing = true);
 
   /**
    * @brief Initializes broker connection and subscriptions.
@@ -243,6 +244,31 @@ class MqttClient : public rclcpp::Node,
    * @brief Connects to the broker using the member client and options.
    */
   void connect();
+
+  /**
+   * @brief Records an MQTT health issue that should trigger restart if it persists.
+   */
+  void markMqttUnhealthy(const std::string& reason);
+
+  /**
+   * @brief Clears the MQTT health issue state.
+   */
+  void clearMqttUnhealthy();
+
+  /**
+   * @brief Returns whether an MQTT return code should be watched by the watchdog.
+   */
+  bool shouldWatchdogMqttRc(int rc) const;
+
+  /**
+   * @brief Returns the number of pending MQTT delivery tokens.
+   */
+  size_t pendingDeliveryTokenCount() const;
+
+  /**
+   * @brief Restarts the process if MQTT stays unhealthy for too long.
+   */
+  void mqttRecoveryWatchdog();
 
   /**
    * @brief Publishes a generic serialized ROS message to the MQTT broker.
@@ -535,6 +561,11 @@ class MqttClient : public rclcpp::Node,
   rclcpp::TimerBase::SharedPtr check_subscriptions_timer_;
 
   /**
+   * @brief Timer to restart the process when MQTT stays unhealthy.
+   */
+  rclcpp::TimerBase::SharedPtr mqtt_recovery_watchdog_timer_;
+
+  /**
    * @brief ROS Service server for providing connection status
    */
   rclcpp::Service<mqtt_client_interfaces::srv::IsConnected>::SharedPtr
@@ -582,6 +613,21 @@ class MqttClient : public rclcpp::Node,
    * @brief Status variable keeping track of connection status to broker
    */
   bool is_connected_ = false;
+
+  /**
+   * @brief Mutex protecting MQTT health state shared across ROS/MQTT threads.
+   */
+  mutable std::mutex mqtt_health_mutex_;
+
+  /**
+   * @brief Timestamp from when MQTT first entered an unhealthy state.
+   */
+  std::optional<std::chrono::steady_clock::time_point> mqtt_unhealthy_since_;
+
+  /**
+   * @brief Human-readable reason for the current unhealthy state.
+   */
+  std::string mqtt_unhealthy_reason_;
 
   /**
    * @brief Broker parameters
