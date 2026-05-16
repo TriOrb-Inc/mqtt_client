@@ -2901,9 +2901,25 @@ bool primitiveRosMessageToString(
   int MqttClient::quicConnectCallback(void* rmsg, void* arg) {
 
     auto* self = static_cast<MqttClient*>(arg);
-    self->handleMqttConnected();
-    if (rmsg && self->nng_.nng_msg_free) {
-      self->nng_.nng_msg_free(static_cast<NngMsg*>(rmsg));
+    struct ScopedNngMsg {
+      NngMsg* msg = nullptr;
+      void (*free_fn)(NngMsg*) = nullptr;
+      ~ScopedNngMsg() {
+        if (msg && free_fn) free_fn(msg);
+      }
+    } scoped_msg{static_cast<NngMsg*>(rmsg), self->nng_.nng_msg_free};
+
+    try {
+      self->handleMqttConnected();
+    } catch (const std::exception& e) {
+      RCLCPP_WARN(self->get_logger(), "NanoSDK QUIC connect callback failed: %s",
+                  e.what());
+      self->markMqttUnhealthy(
+        fmt::format("quic connect callback failed: {}", e.what()));
+    } catch (...) {
+      RCLCPP_WARN(self->get_logger(),
+                  "NanoSDK QUIC connect callback failed with unknown exception");
+      self->markMqttUnhealthy("quic connect callback failed");
     }
     return 0;
   }
@@ -2912,9 +2928,26 @@ bool primitiveRosMessageToString(
   int MqttClient::quicDisconnectCallback(void* rmsg, void* arg) {
 
     auto* self = static_cast<MqttClient*>(arg);
-    self->handleMqttDisconnected("quic disconnect", true);
-    if (rmsg && self->nng_.nng_msg_free) {
-      self->nng_.nng_msg_free(static_cast<NngMsg*>(rmsg));
+    struct ScopedNngMsg {
+      NngMsg* msg = nullptr;
+      void (*free_fn)(NngMsg*) = nullptr;
+      ~ScopedNngMsg() {
+        if (msg && free_fn) free_fn(msg);
+      }
+    } scoped_msg{static_cast<NngMsg*>(rmsg), self->nng_.nng_msg_free};
+
+    try {
+      self->handleMqttDisconnected("quic disconnect", true);
+    } catch (const std::exception& e) {
+      RCLCPP_WARN(self->get_logger(),
+                  "NanoSDK QUIC disconnect callback failed: %s", e.what());
+      self->markMqttUnhealthy(
+        fmt::format("quic disconnect callback failed: {}", e.what()));
+    } catch (...) {
+      RCLCPP_WARN(
+        self->get_logger(),
+        "NanoSDK QUIC disconnect callback failed with unknown exception");
+      self->markMqttUnhealthy("quic disconnect callback failed");
     }
     return 0;
   }
@@ -2923,14 +2956,34 @@ bool primitiveRosMessageToString(
   int MqttClient::quicMessageCallback(void* rmsg, void* arg) {
 
     auto* self = static_cast<MqttClient*>(arg);
-    self->handleQuicMessage(rmsg);
+    try {
+      self->handleQuicMessage(rmsg);
+    } catch (const std::exception& e) {
+      RCLCPP_WARN(self->get_logger(), "NanoSDK QUIC message callback failed: %s",
+                  e.what());
+      self->markMqttUnhealthy(
+        fmt::format("quic message callback failed: {}", e.what()));
+    } catch (...) {
+      RCLCPP_WARN(self->get_logger(),
+                  "NanoSDK QUIC message callback failed with unknown exception");
+      self->markMqttUnhealthy("quic message callback failed");
+    }
     return 0;
   }
 
 
   void MqttClient::handleQuicMessage(void* rmsg) {
 
-    auto* msg = static_cast<NngMsg*>(rmsg);
+    struct ScopedNngMsg {
+      NngMsg* msg = nullptr;
+      void (*free_fn)(NngMsg*) = nullptr;
+      ~ScopedNngMsg() {
+        if (msg && free_fn) free_fn(msg);
+      }
+    } scoped_msg{static_cast<NngMsg*>(rmsg), nng_.nng_msg_free};
+    auto* msg = scoped_msg.msg;
+    if (!msg) return;
+
     uint32_t topic_size = 0;
     uint32_t payload_size = 0;
     const char* topic = nng_.nng_mqtt_msg_get_publish_topic(msg, &topic_size);
@@ -2941,7 +2994,6 @@ bool primitiveRosMessageToString(
         std::string(topic, topic_size), payload, payload_size);
       message_arrived(mqtt_msg);
     }
-    if (nng_.nng_msg_free) nng_.nng_msg_free(msg);
   }
 
 
