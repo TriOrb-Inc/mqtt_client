@@ -72,7 +72,7 @@ constexpr auto kMqttRecoveryTimeout = std::chrono::seconds(30);
 constexpr int kDefaultClientBufferSize = 2000;
 constexpr char kDefaultClientIdPrefix[] = "triorb_mqtt_";
 constexpr char kDefaultClientBufferRoot[] = "mqtt_client_buffer";
-constexpr unsigned kNngFlagAlloc = 1u;
+constexpr int kNngSendFlags = 0;  // nng_sendmsg takes NNG_FLAG_*; 0 keeps blocking send semantics.
 constexpr uint8_t kMqttProtocolVersionV311 = 4;
 constexpr int kNngMqttConnect = 0x01;
 constexpr int kNngMqttPublish = 0x03;
@@ -2244,7 +2244,7 @@ bool primitiveRosMessageToString(
         msg, client_config_.last_will.retained);
     }
 
-    rv = nng_.nng_sendmsg(quic_socket_, msg, kNngFlagAlloc);
+    rv = nng_.nng_sendmsg(quic_socket_, msg, kNngSendFlags);
     if (rv != 0) {
       nng_.nng_msg_free(msg);
       RCLCPP_ERROR(get_logger(), "NanoSDK QUIC CONNECT send failed: %s",
@@ -2283,7 +2283,7 @@ bool primitiveRosMessageToString(
     nng_.nng_mqtt_msg_set_publish_payload(
       msg, const_cast<uint8_t*>(static_cast<const uint8_t*>(payload)),
       static_cast<uint32_t>(payload_size));
-    rv = nng_.nng_sendmsg(quic_socket_, msg, kNngFlagAlloc);
+    rv = nng_.nng_sendmsg(quic_socket_, msg, kNngSendFlags);
     if (rv != 0) {
       nng_.nng_msg_free(msg);
       throw std::runtime_error(fmt::format(
@@ -2314,7 +2314,7 @@ bool primitiveRosMessageToString(
     }
     nng_.nng_mqtt_msg_set_packet_type(msg, kNngMqttSubscribe);
     nng_.nng_mqtt_msg_set_subscribe_topics(msg, &subscription, 1);
-    rv = nng_.nng_sendmsg(quic_socket_, msg, kNngFlagAlloc);
+    rv = nng_.nng_sendmsg(quic_socket_, msg, kNngSendFlags);
     if (rv != 0) {
       nng_.nng_msg_free(msg);
       throw std::runtime_error(fmt::format(
@@ -2912,7 +2912,7 @@ bool primitiveRosMessageToString(
   int MqttClient::quicDisconnectCallback(void* rmsg, void* arg) {
 
     auto* self = static_cast<MqttClient*>(arg);
-    self->handleMqttDisconnected("quic disconnect", false);
+    self->handleMqttDisconnected("quic disconnect", true);
     if (rmsg && self->nng_.nng_msg_free) {
       self->nng_.nng_msg_free(static_cast<NngMsg*>(rmsg));
     }
