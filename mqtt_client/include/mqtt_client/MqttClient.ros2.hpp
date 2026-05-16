@@ -257,6 +257,11 @@ class MqttClient : public rclcpp::Node,
   void markMqttUnhealthy(const std::string& reason);
 
   /**
+   * @brief Updates the cached MQTT connection state shared by callbacks/services.
+   */
+  void setMqttConnected(bool connected);
+
+  /**
    * @brief Clears the MQTT health issue state.
    */
   void clearMqttUnhealthy();
@@ -580,6 +585,7 @@ class MqttClient : public rclcpp::Node,
     int (*nng_sendmsg)(NngSocket, NngMsg*, int) = nullptr;
     int (*nng_close)(NngSocket) = nullptr;
     const char* (*nng_strerror)(int) = nullptr;
+    int (*nng_socket_set_ms)(NngSocket, const char*, int32_t) = nullptr;
     int (*nng_socket_set_ptr)(NngSocket, const char*, void*) = nullptr;
     int (*nng_mqtt_alloc_sqlite_opt)(void**) = nullptr;
     int (*nng_mqtt_free_sqlite_opt)(void*) = nullptr;
@@ -608,7 +614,7 @@ class MqttClient : public rclcpp::Node,
   /**
    * @brief Sends the MQTT CONNECT packet through NanoSDK QUIC.
    */
-  void connectQuic();
+  bool connectQuic();
 
   /**
    * @brief Static NanoSDK callback wrappers.
@@ -643,6 +649,7 @@ class MqttClient : public rclcpp::Node,
       int connect_timeout_sec;   ///< QUIC handshake idle timeout
       int disconnect_timeout_sec;///< QUIC disconnect timeout
       int idle_timeout_sec;      ///< QUIC idle timeout
+      int send_timeout_ms;       ///< finite timeout for blocking nng_sendmsg
       int congestion_control;    ///< 0=cubic, 1=bbr in NanoSDK
       bool tls_enabled;          ///< enable explicit client TLS material
       bool verify_peer;          ///< verify broker certificate
@@ -828,6 +835,12 @@ class MqttClient : public rclcpp::Node,
   std::string mqtt_unhealthy_reason_;
 
   /**
+   * @brief Last QUIC reconnect attempt started by the recovery watchdog.
+   */
+  std::optional<std::chrono::steady_clock::time_point>
+    last_quic_reconnect_attempt_;
+
+  /**
    * @brief Broker parameters
    */
   BrokerConfig broker_config_;
@@ -899,19 +912,10 @@ class MqttClient : public rclcpp::Node,
 template <typename T>
 bool MqttClient::loadParameter(const std::string& key, T& value) {
   rclcpp::Parameter param;
-  bool found = false;
-  try {
-    found = get_parameter(key, param);
-  } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
-    return false;
-  }
+  bool found = get_parameter(key, param);
   if (!found || param.get_type() == rclcpp::ParameterType::PARAMETER_NOT_SET)
     return false;
-  try {
-    found = get_parameter(key, value);
-  } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
-    return false;
-  }
+  found = get_parameter(key, value);
   if (found)
     RCLCPP_DEBUG(get_logger(), "Retrieved parameter '%s' = '%s'", key.c_str(),
                  std::to_string(value).c_str());
@@ -923,19 +927,9 @@ template <typename T>
 bool MqttClient::loadParameter(const std::string& key, T& value,
                                const T& default_value) {
   rclcpp::Parameter param;
-  bool found = false;
-  try {
-    found = get_parameter(key, param);
-  } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
-    found = false;
-  }
+  bool found = get_parameter(key, param);
   if (found && param.get_type() != rclcpp::ParameterType::PARAMETER_NOT_SET) {
-    try {
-      found = get_parameter(key, value);
-    } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
-      value = default_value;
-      found = false;
-    }
+    found = get_parameter(key, value);
   } else {
     value = default_value;
     found = false;
@@ -953,19 +947,10 @@ bool MqttClient::loadParameter(const std::string& key, T& value,
 template <typename T>
 bool MqttClient::loadParameter(const std::string& key, std::vector<T>& value) {
   rclcpp::Parameter param;
-  bool found = false;
-  try {
-    found = get_parameter(key, param);
-  } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
-    return false;
-  }
+  bool found = get_parameter(key, param);
   if (!found || param.get_type() == rclcpp::ParameterType::PARAMETER_NOT_SET)
     return false;
-  try {
-    found = get_parameter(key, value);
-  } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
-    return false;
-  }
+  found = get_parameter(key, value);
   if (found)
     RCLCPP_WARN(get_logger(), "Retrieved parameter '%s' = '[%s]'", key.c_str(),
                 fmt::format("{}", fmt::join(value, ", ")).c_str());
@@ -977,19 +962,9 @@ template <typename T>
 bool MqttClient::loadParameter(const std::string& key, std::vector<T>& value,
                                const std::vector<T>& default_value) {
   rclcpp::Parameter param;
-  bool found = false;
-  try {
-    found = get_parameter(key, param);
-  } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
-    found = false;
-  }
+  bool found = get_parameter(key, param);
   if (found && param.get_type() != rclcpp::ParameterType::PARAMETER_NOT_SET) {
-    try {
-      found = get_parameter(key, value);
-    } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
-      value = default_value;
-      found = false;
-    }
+    found = get_parameter(key, value);
   } else {
     value = default_value;
     found = false;

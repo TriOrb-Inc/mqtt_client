@@ -69,10 +69,12 @@ namespace {
 
 constexpr auto kMqttRecoveryWatchdogPeriod = std::chrono::seconds(1);
 constexpr auto kMqttRecoveryTimeout = std::chrono::seconds(30);
+constexpr auto kMqttQuicReconnectPeriod = std::chrono::seconds(2);
 constexpr int kDefaultClientBufferSize = 2000;
 constexpr char kDefaultClientIdPrefix[] = "triorb_mqtt_";
 constexpr char kDefaultClientBufferRoot[] = "mqtt_client_buffer";
 constexpr int kNngSendFlags = 0;  // nng_sendmsg takes NNG_FLAG_*; 0 keeps blocking send semantics.
+constexpr char kNngOptSendTimeout[] = "send-timeout";
 constexpr uint8_t kMqttProtocolVersionV311 = 4;
 constexpr int kNngMqttConnect = 0x01;
 constexpr int kNngMqttPublish = 0x03;
@@ -1009,6 +1011,9 @@ bool primitiveRosMessageToString(
     param_desc.description = "QUIC idle timeout in seconds";
     declare_parameter("broker.quic.idle_timeout_sec",
                       rclcpp::ParameterType::PARAMETER_INTEGER, param_desc);
+    param_desc.description = "finite timeout in milliseconds for QUIC MQTT send";
+    declare_parameter("broker.quic.send_timeout_ms",
+                      rclcpp::ParameterType::PARAMETER_INTEGER, param_desc);
     param_desc.description = "QUIC congestion control: 0=cubic, 1=bbr";
     declare_parameter("broker.quic.congestion_control",
                       rclcpp::ParameterType::PARAMETER_INTEGER, param_desc);
@@ -1213,6 +1218,8 @@ bool primitiveRosMessageToString(
                     broker_config_.quic.disconnect_timeout_sec, 30);
       loadParameter("broker.quic.idle_timeout_sec",
                     broker_config_.quic.idle_timeout_sec, 30);
+      loadParameter("broker.quic.send_timeout_ms",
+                    broker_config_.quic.send_timeout_ms, 2000);
       loadParameter("broker.quic.congestion_control",
                     broker_config_.quic.congestion_control, 0);
       loadParameter("broker.quic.tls.enabled",
@@ -1321,11 +1328,7 @@ bool primitiveRosMessageToString(
     // parse bridge parameters
     auto get_set_parameter =
       [this](const std::string& key, rclcpp::Parameter& parameter) {
-        try {
-          if (!get_parameter(key, parameter)) return false;
-        } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
-          return false;
-        }
+        if (!get_parameter(key, parameter)) return false;
         return parameter.get_type() != rclcpp::ParameterType::PARAMETER_NOT_SET;
       };
 
@@ -1604,19 +1607,10 @@ bool primitiveRosMessageToString(
 
   bool MqttClient::loadParameter(const std::string& key, std::string& value) {
     rclcpp::Parameter param;
-    bool found = false;
-    try {
-      found = get_parameter(key, param);
-    } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
-      return false;
-    }
+    bool found = get_parameter(key, param);
     if (!found || param.get_type() == rclcpp::ParameterType::PARAMETER_NOT_SET)
       return false;
-    try {
-      found = get_parameter(key, value);
-    } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
-      return false;
-    }
+    found = get_parameter(key, value);
     if (found)
       RCLCPP_DEBUG(get_logger(), "Retrieved parameter '%s' = '%s'", key.c_str(),
                    value.c_str());
@@ -1627,19 +1621,9 @@ bool primitiveRosMessageToString(
   bool MqttClient::loadParameter(const std::string& key, std::string& value,
                                  const std::string& default_value) {
     rclcpp::Parameter param;
-    bool found = false;
-    try {
-      found = get_parameter(key, param);
-    } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
-      found = false;
-    }
+    bool found = get_parameter(key, param);
     if (found && param.get_type() != rclcpp::ParameterType::PARAMETER_NOT_SET) {
-      try {
-        found = get_parameter(key, value);
-      } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
-        value = default_value;
-        found = false;
-      }
+      found = get_parameter(key, value);
     } else {
       value = default_value;
       found = false;
@@ -1986,6 +1970,7 @@ bool primitiveRosMessageToString(
     ok &= load_symbol(nng_.nng_sendmsg, "nng_sendmsg");
     ok &= load_symbol(nng_.nng_close, "nng_close");
     ok &= load_symbol(nng_.nng_strerror, "nng_strerror");
+    ok &= load_symbol(nng_.nng_socket_set_ms, "nng_socket_set_ms");
 
     load_symbol(nng_.nng_mqtt_msg_set_connect_user_name,
                 "nng_mqtt_msg_set_connect_user_name");
@@ -2114,6 +2099,14 @@ bool primitiveRosMessageToString(
     }
     quic_socket_opened_ = true;
 
+    rv = nng_.nng_socket_set_ms(
+      quic_socket_, kNngOptSendTimeout,
+      static_cast<int32_t>(std::max(1, broker_config_.quic.send_timeout_ms)));
+    if (rv != 0) {
+      RCLCPP_WARN(get_logger(), "NanoSDK QUIC send timeout setup failed: %s",
+                  nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown");
+    }
+
     setupQuicPersistentBuffer();
     nng_.nng_mqtt_quic_set_connect_cb(
       &quic_socket_, &MqttClient::quicConnectCallback, this);
@@ -2201,14 +2194,15 @@ bool primitiveRosMessageToString(
     client_->set_callback(*this);
   }
 
-  void MqttClient::connectQuic() {
+  bool MqttClient::connectQuic() {
 
     NngMsg* msg = nullptr;
     int rv = nng_.nng_mqtt_msg_alloc(&msg, 0);
     if (rv != 0 || !msg) {
-      RCLCPP_ERROR(get_logger(), "NanoSDK CONNECT allocation failed: %s",
-                   nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown");
-      exit(EXIT_FAILURE);
+      RCLCPP_WARN(get_logger(), "NanoSDK CONNECT allocation failed: %s",
+                  nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown");
+      if (msg) nng_.nng_msg_free(msg);
+      return false;
     }
 
     nng_.nng_mqtt_msg_set_packet_type(msg, kNngMqttConnect);
@@ -2247,10 +2241,11 @@ bool primitiveRosMessageToString(
     rv = nng_.nng_sendmsg(quic_socket_, msg, kNngSendFlags);
     if (rv != 0) {
       nng_.nng_msg_free(msg);
-      RCLCPP_ERROR(get_logger(), "NanoSDK QUIC CONNECT send failed: %s",
-                   nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown");
-      exit(EXIT_FAILURE);
+      RCLCPP_WARN(get_logger(), "NanoSDK QUIC CONNECT send failed: %s",
+                  nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown");
+      return false;
     }
+    return true;
   }
 
   void MqttClient::publishMqtt(const std::string& topic, const void* payload,
@@ -2286,6 +2281,7 @@ bool primitiveRosMessageToString(
     rv = nng_.nng_sendmsg(quic_socket_, msg, kNngSendFlags);
     if (rv != 0) {
       nng_.nng_msg_free(msg);
+      setMqttConnected(false);
       throw std::runtime_error(fmt::format(
         "NanoSDK QUIC PUBLISH send failed for '{}': {}", topic,
         nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown"));
@@ -2317,6 +2313,7 @@ bool primitiveRosMessageToString(
     rv = nng_.nng_sendmsg(quic_socket_, msg, kNngSendFlags);
     if (rv != 0) {
       nng_.nng_msg_free(msg);
+      setMqttConnected(false);
       throw std::runtime_error(fmt::format(
         "NanoSDK QUIC SUBSCRIBE send failed for '{}': {}", topic,
         nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown"));
@@ -2334,7 +2331,8 @@ bool primitiveRosMessageToString(
                 mqttServerUri().c_str(), as_client.c_str());
 
     if (usingQuicTransport()) {
-      connectQuic();
+      if (!connectQuic())
+        markMqttUnhealthy("quic connect failed");
       return;
     }
 
@@ -2360,11 +2358,19 @@ bool primitiveRosMessageToString(
   }
 
 
+  void MqttClient::setMqttConnected(const bool connected) {
+
+    std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
+    is_connected_ = connected;
+  }
+
+
   void MqttClient::clearMqttUnhealthy() {
 
     std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
     mqtt_unhealthy_since_.reset();
     mqtt_unhealthy_reason_.clear();
+    last_quic_reconnect_attempt_.reset();
   }
 
 
@@ -2403,8 +2409,28 @@ bool primitiveRosMessageToString(
 
     if (!unhealthy_since) return;
 
-    const auto elapsed = std::chrono::steady_clock::now() - *unhealthy_since;
-    if (elapsed < kMqttRecoveryTimeout) return;
+    const auto now = std::chrono::steady_clock::now();
+    const auto elapsed = now - *unhealthy_since;
+    if (elapsed < kMqttRecoveryTimeout) {
+      if (usingQuicTransport()) {
+        bool should_reconnect = false;
+        {
+          std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
+          should_reconnect =
+            !last_quic_reconnect_attempt_ ||
+            now - *last_quic_reconnect_attempt_ >= kMqttQuicReconnectPeriod;
+          if (should_reconnect) last_quic_reconnect_attempt_ = now;
+        }
+        if (should_reconnect) {
+          RCLCPP_WARN(get_logger(),
+                      "MQTT QUIC transport is unhealthy (reason='%s'); "
+                      "retrying CONNECT before watchdog timeout",
+                      unhealthy_reason.c_str());
+          connect();
+        }
+      }
+      return;
+    }
 
     const auto elapsed_sec =
       std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
@@ -2829,11 +2855,6 @@ bool primitiveRosMessageToString(
 
   void MqttClient::handleMqttConnected() {
 
-    {
-      std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
-      is_connected_ = true;
-    }
-    clearMqttUnhealthy();
     std::string as_client =
       client_config_.id.empty()
         ? ""
@@ -2859,6 +2880,8 @@ bool primitiveRosMessageToString(
                     mqtt_topic.c_str());
       }
     }
+    setMqttConnected(true);
+    clearMqttUnhealthy();
   }
 
 
@@ -2866,7 +2889,18 @@ bool primitiveRosMessageToString(
 
     (void)cause;  // Avoid compiler warning for unused parameter.
 
-    handleMqttConnected();
+    try {
+      handleMqttConnected();
+    } catch (const std::exception& e) {
+      setMqttConnected(false);
+      RCLCPP_WARN(get_logger(), "MQTT connected callback failed: %s", e.what());
+      markMqttUnhealthy(fmt::format("connected callback failed: {}", e.what()));
+    } catch (...) {
+      setMqttConnected(false);
+      RCLCPP_WARN(get_logger(),
+                  "MQTT connected callback failed with unknown exception");
+      markMqttUnhealthy("connected callback failed");
+    }
   }
 
 
@@ -2883,12 +2917,9 @@ bool primitiveRosMessageToString(
     std_msgs::msg::String _msg; _msg.data = "mqtt_client / Connection to broker lost";
     this->pub_except_error_str_add_->publish(_msg);
 #endif // HAVE_TRIORB_INTERFACE
-    {
-      std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
-      is_connected_ = false;
-    }
+    setMqttConnected(false);
     markMqttUnhealthy("connection_lost callback");
-    if (request_reconnect) connect();
+    if (request_reconnect && !usingQuicTransport()) connect();
   }
 
 
@@ -2912,11 +2943,13 @@ bool primitiveRosMessageToString(
     try {
       self->handleMqttConnected();
     } catch (const std::exception& e) {
+      self->setMqttConnected(false);
       RCLCPP_WARN(self->get_logger(), "NanoSDK QUIC connect callback failed: %s",
                   e.what());
       self->markMqttUnhealthy(
         fmt::format("quic connect callback failed: {}", e.what()));
     } catch (...) {
+      self->setMqttConnected(false);
       RCLCPP_WARN(self->get_logger(),
                   "NanoSDK QUIC connect callback failed with unknown exception");
       self->markMqttUnhealthy("quic connect callback failed");
@@ -2939,11 +2972,13 @@ bool primitiveRosMessageToString(
     try {
       self->handleMqttDisconnected("quic disconnect", true);
     } catch (const std::exception& e) {
+      self->setMqttConnected(false);
       RCLCPP_WARN(self->get_logger(),
                   "NanoSDK QUIC disconnect callback failed: %s", e.what());
       self->markMqttUnhealthy(
         fmt::format("quic disconnect callback failed: {}", e.what()));
     } catch (...) {
+      self->setMqttConnected(false);
       RCLCPP_WARN(
         self->get_logger(),
         "NanoSDK QUIC disconnect callback failed with unknown exception");
