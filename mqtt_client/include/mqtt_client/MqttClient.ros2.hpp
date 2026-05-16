@@ -27,6 +27,7 @@ SOFTWARE.
 
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -78,6 +79,11 @@ class MqttClient : public rclcpp::Node,
                    public virtual mqtt::iaction_listener {
 
  public:
+  /**
+   * @brief Destructor closes optional QUIC resources loaded outside Paho.
+   */
+  ~MqttClient() override;
+
   /**
    * @brief Initializes node.
    *
@@ -271,6 +277,43 @@ class MqttClient : public rclcpp::Node,
   void mqttRecoveryWatchdog();
 
   /**
+   * @brief Returns true when the bridge should use the direct QUIC backend.
+   */
+  bool usingQuicTransport() const;
+
+  /**
+   * @brief Human-readable broker URI for the active MQTT transport.
+   */
+  std::string mqttServerUri() const;
+
+  /**
+   * @brief Returns connection state for the active MQTT transport.
+   */
+  bool isMqttTransportConnected();
+
+  /**
+   * @brief Publishes one MQTT payload using the active MQTT transport.
+   */
+  void publishMqtt(const std::string& topic, const void* payload,
+                   size_t payload_size, int qos, bool retained);
+
+  /**
+   * @brief Subscribes one MQTT topic using the active MQTT transport.
+   */
+  void subscribeMqtt(const std::string& topic, int qos);
+
+  /**
+   * @brief Common connected handler used by Paho and QUIC backends.
+   */
+  void handleMqttConnected();
+
+  /**
+   * @brief Common disconnected handler used by Paho and QUIC backends.
+   */
+  void handleMqttDisconnected(const std::string& cause,
+                              bool request_reconnect);
+
+  /**
    * @brief Publishes a generic serialized ROS message to the MQTT broker.
    *
    * Before publishing the ROS message to the MQTT broker, the ROS message type
@@ -443,9 +486,147 @@ class MqttClient : public rclcpp::Node,
 
  protected:
   /**
+   * @brief Minimal ABI-compatible handle for NanoSDK's nng_socket.
+   */
+  struct NngSocket {
+    uint32_t id = 0;
+  };
+
+  /**
+   * @brief Opaque NanoSDK MQTT message handle used through dlopen.
+   */
+  struct NngMsg;
+
+  /**
+   * @brief NanoSDK topic buffer layout used when composing SUBSCRIBE packets.
+   */
+  struct NngMqttTopic {
+    uint32_t length = 0;
+    uint8_t* buf = nullptr;
+  };
+
+  /**
+   * @brief NanoSDK topic/QoS layout used when composing SUBSCRIBE packets.
+   */
+  struct NngMqttTopicQos {
+    NngMqttTopic topic;
+    uint8_t qos = 0;
+    uint8_t nolocal = 0;
+    uint8_t rap = 0;
+    uint8_t retain_handling = 0;
+  };
+
+  /**
+   * @brief NanoSDK QUIC TLS configuration layout passed to open_conf().
+   */
+  struct NngConfTls {
+    bool enable = false;
+    char* url = nullptr;
+    char* cafile = nullptr;
+    char* certfile = nullptr;
+    char* keyfile = nullptr;
+    char* ca = nullptr;
+    char* cert = nullptr;
+    char* key = nullptr;
+    char* key_password = nullptr;
+    bool verify_peer = false;
+    bool set_fail = false;
+  };
+
+  /**
+   * @brief NanoSDK QUIC configuration layout passed to open_conf().
+   */
+  struct NngConfQuic {
+    NngConfTls tls;
+    bool qos_first = true;
+    bool multi_stream = false;
+    uint64_t qkeepalive = 30;
+    uint64_t qconnect_timeout = 60;
+    uint32_t qdiscon_timeout = 30;
+    uint32_t qidle_timeout = 30;
+    uint8_t qcongestion_control = 0;
+  };
+
+  /**
+   * @brief NanoSDK symbols loaded at runtime for optional QUIC transport.
+   */
+  struct NngQuicApi {
+    void* handle = nullptr;
+    int (*nng_mqtt_quic_client_open_conf)(NngSocket*, const char*, NngConfQuic*) = nullptr;
+    int (*nng_mqtt_quic_set_connect_cb)(NngSocket*, int (*)(void*, void*), void*) = nullptr;
+    int (*nng_mqtt_quic_set_disconnect_cb)(NngSocket*, int (*)(void*, void*), void*) = nullptr;
+    int (*nng_mqtt_quic_set_msg_recv_cb)(NngSocket*, int (*)(void*, void*), void*) = nullptr;
+    int (*nng_mqtt_msg_alloc)(NngMsg**, size_t) = nullptr;
+    void (*nng_mqtt_msg_set_packet_type)(NngMsg*, int) = nullptr;
+    void (*nng_mqtt_msg_set_connect_proto_version)(NngMsg*, uint8_t) = nullptr;
+    void (*nng_mqtt_msg_set_connect_keep_alive)(NngMsg*, uint16_t) = nullptr;
+    void (*nng_mqtt_msg_set_connect_client_id)(NngMsg*, const char*) = nullptr;
+    void (*nng_mqtt_msg_set_connect_user_name)(NngMsg*, const char*) = nullptr;
+    void (*nng_mqtt_msg_set_connect_password)(NngMsg*, const char*) = nullptr;
+    void (*nng_mqtt_msg_set_connect_clean_session)(NngMsg*, bool) = nullptr;
+    void (*nng_mqtt_msg_set_connect_will_topic)(NngMsg*, const char*) = nullptr;
+    void (*nng_mqtt_msg_set_connect_will_msg)(NngMsg*, uint8_t*, uint32_t) = nullptr;
+    void (*nng_mqtt_msg_set_connect_will_retain)(NngMsg*, bool) = nullptr;
+    void (*nng_mqtt_msg_set_connect_will_qos)(NngMsg*, uint8_t) = nullptr;
+    int (*nng_mqtt_msg_set_publish_topic)(NngMsg*, const char*) = nullptr;
+    void (*nng_mqtt_msg_set_publish_payload)(NngMsg*, uint8_t*, uint32_t) = nullptr;
+    void (*nng_mqtt_msg_set_publish_qos)(NngMsg*, uint8_t) = nullptr;
+    void (*nng_mqtt_msg_set_publish_retain)(NngMsg*, bool) = nullptr;
+    void (*nng_mqtt_msg_set_publish_dup)(NngMsg*, bool) = nullptr;
+    const char* (*nng_mqtt_msg_get_publish_topic)(NngMsg*, uint32_t*) = nullptr;
+    uint8_t* (*nng_mqtt_msg_get_publish_payload)(NngMsg*, uint32_t*) = nullptr;
+    void (*nng_mqtt_msg_set_subscribe_topics)(NngMsg*, NngMqttTopicQos*, uint32_t) = nullptr;
+    void (*nng_msg_free)(NngMsg*) = nullptr;
+    int (*nng_sendmsg)(NngSocket, NngMsg*, int) = nullptr;
+    int (*nng_close)(NngSocket) = nullptr;
+    const char* (*nng_strerror)(int) = nullptr;
+    int (*nng_socket_set_ptr)(NngSocket, const char*, void*) = nullptr;
+    int (*nng_mqtt_alloc_sqlite_opt)(void**) = nullptr;
+    int (*nng_mqtt_free_sqlite_opt)(void*) = nullptr;
+    void (*nng_mqtt_set_sqlite_enable)(void*, bool) = nullptr;
+    void (*nng_mqtt_set_sqlite_flush_threshold)(void*, size_t) = nullptr;
+    void (*nng_mqtt_set_sqlite_max_rows)(void*, size_t) = nullptr;
+    void (*nng_mqtt_set_sqlite_db_dir)(void*, const char*) = nullptr;
+    void (*nng_mqtt_sqlite_db_init)(void*, const char*, uint8_t) = nullptr;
+  };
+
+  /**
+   * @brief Loads NanoSDK/NNG symbols when QUIC transport is requested.
+   */
+  bool loadNngQuicApi();
+
+  /**
+   * @brief Initializes the optional NanoSDK persistent buffer.
+   */
+  void setupQuicPersistentBuffer();
+
+  /**
+   * @brief Opens the QUIC MQTT socket and registers callbacks.
+   */
+  void setupQuicClient();
+
+  /**
+   * @brief Sends the MQTT CONNECT packet through NanoSDK QUIC.
+   */
+  void connectQuic();
+
+  /**
+   * @brief Static NanoSDK callback wrappers.
+   */
+  static int quicConnectCallback(void* rmsg, void* arg);
+  static int quicDisconnectCallback(void* rmsg, void* arg);
+  static int quicMessageCallback(void* rmsg, void* arg);
+
+  /**
+   * @brief Handles one NanoSDK PUBLISH message.
+   */
+  void handleQuicMessage(void* rmsg);
+
+  /**
    * @brief Struct containing broker parameters
    */
   struct BrokerConfig {
+    std::string transport;  ///< mqtt transport: tcp, ssl, or quic
     std::string host;  ///< broker host
     int port;          ///< broker port
     std::string user;  ///< username
@@ -454,6 +635,23 @@ class MqttClient : public rclcpp::Node,
       bool enabled;                          ///< whether to connect via SSL/TLS
       std::filesystem::path ca_certificate;  ///< public CA certificate trusted by client
     } tls;                                   ///< SSL/TLS-related variables
+    struct {
+      std::string library;       ///< NanoSDK/NNG shared library path
+      bool qos_first;            ///< prioritize QoS packets on QUIC
+      bool multi_stream;         ///< use NanoSDK multi-stream mode
+      int keep_alive_sec;        ///< QUIC keepalive timeout
+      int connect_timeout_sec;   ///< QUIC handshake idle timeout
+      int disconnect_timeout_sec;///< QUIC disconnect timeout
+      int idle_timeout_sec;      ///< QUIC idle timeout
+      int congestion_control;    ///< 0=cubic, 1=bbr in NanoSDK
+      bool tls_enabled;          ///< enable explicit client TLS material
+      bool verify_peer;          ///< verify broker certificate
+      bool fail_if_no_peer_cert; ///< fail when peer cert is missing
+      std::string ca_certificate;///< QUIC CA certificate path
+      std::string certificate;   ///< QUIC client certificate path
+      std::string key;           ///< QUIC client private key path
+      std::string key_password;  ///< QUIC client key password
+    } quic;                      ///< QUIC-related variables
   };
 
   /**
@@ -645,6 +843,19 @@ class MqttClient : public rclcpp::Node,
   std::shared_ptr<mqtt::async_client> client_;
 
   /**
+   * @brief Runtime-loaded NanoSDK/NNG QUIC symbols.
+   */
+  NngQuicApi nng_;
+
+  /**
+   * @brief NanoSDK QUIC socket and related state.
+   */
+  NngSocket quic_socket_;
+  bool quic_socket_opened_ = false;
+  std::string quic_uri_;
+  void* quic_sqlite_option_ = nullptr;
+
+  /**
    * @brief MQTT client connection options
    */
   mqtt::connect_options connect_options_;
@@ -687,7 +898,20 @@ class MqttClient : public rclcpp::Node,
 
 template <typename T>
 bool MqttClient::loadParameter(const std::string& key, T& value) {
-  bool found = get_parameter(key, value);
+  rclcpp::Parameter param;
+  bool found = false;
+  try {
+    found = get_parameter(key, param);
+  } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
+    return false;
+  }
+  if (!found || param.get_type() == rclcpp::ParameterType::PARAMETER_NOT_SET)
+    return false;
+  try {
+    found = get_parameter(key, value);
+  } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
+    return false;
+  }
   if (found)
     RCLCPP_DEBUG(get_logger(), "Retrieved parameter '%s' = '%s'", key.c_str(),
                  std::to_string(value).c_str());
@@ -698,7 +922,24 @@ bool MqttClient::loadParameter(const std::string& key, T& value) {
 template <typename T>
 bool MqttClient::loadParameter(const std::string& key, T& value,
                                const T& default_value) {
-  bool found = get_parameter_or(key, value, default_value);
+  rclcpp::Parameter param;
+  bool found = false;
+  try {
+    found = get_parameter(key, param);
+  } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
+    found = false;
+  }
+  if (found && param.get_type() != rclcpp::ParameterType::PARAMETER_NOT_SET) {
+    try {
+      found = get_parameter(key, value);
+    } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
+      value = default_value;
+      found = false;
+    }
+  } else {
+    value = default_value;
+    found = false;
+  }
   if (!found)
     RCLCPP_WARN(get_logger(), "Parameter '%s' not set, defaulting to '%s'",
                 key.c_str(), std::to_string(default_value).c_str());
@@ -711,7 +952,20 @@ bool MqttClient::loadParameter(const std::string& key, T& value,
 
 template <typename T>
 bool MqttClient::loadParameter(const std::string& key, std::vector<T>& value) {
-  const bool found = get_parameter(key, value);
+  rclcpp::Parameter param;
+  bool found = false;
+  try {
+    found = get_parameter(key, param);
+  } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
+    return false;
+  }
+  if (!found || param.get_type() == rclcpp::ParameterType::PARAMETER_NOT_SET)
+    return false;
+  try {
+    found = get_parameter(key, value);
+  } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
+    return false;
+  }
   if (found)
     RCLCPP_WARN(get_logger(), "Retrieved parameter '%s' = '[%s]'", key.c_str(),
                 fmt::format("{}", fmt::join(value, ", ")).c_str());
@@ -722,7 +976,24 @@ bool MqttClient::loadParameter(const std::string& key, std::vector<T>& value) {
 template <typename T>
 bool MqttClient::loadParameter(const std::string& key, std::vector<T>& value,
                                const std::vector<T>& default_value) {
-  const bool found = get_parameter_or(key, value, default_value);
+  rclcpp::Parameter param;
+  bool found = false;
+  try {
+    found = get_parameter(key, param);
+  } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
+    found = false;
+  }
+  if (found && param.get_type() != rclcpp::ParameterType::PARAMETER_NOT_SET) {
+    try {
+      found = get_parameter(key, value);
+    } catch (const rclcpp::exceptions::InvalidParameterValueException&) {
+      value = default_value;
+      found = false;
+    }
+  } else {
+    value = default_value;
+    found = false;
+  }
   if (!found)
     RCLCPP_WARN(get_logger(), "Parameter '%s' not set, defaulting to '%s'",
                 key.c_str(), fmt::format("{}", fmt::join(value, ", ")).c_str());
