@@ -1,4 +1,12 @@
 #!/bin/bash
+FAST_DDS_PROFILE_FILE=${FAST_DDS_PROFILE_FILE:-/params/fastdds_shm.xml}
+FAST_DDS_PROFILE_HOST_FILE=${FAST_DDS_PROFILE_HOST_FILE:-/triorb/params/${FAST_DDS_PROFILE_FILE##*/}}
+if [ -f "${FAST_DDS_PROFILE_HOST_FILE}" ]; then
+    FAST_DDS_DOCKER_ARGS="-e FASTRTPS_DEFAULT_PROFILES_FILE=${FAST_DDS_PROFILE_FILE} -e FASTDDS_DEFAULT_PROFILES_FILE=${FAST_DDS_PROFILE_FILE}"
+else
+    echo "WARNING: FastDDS profile ${FAST_DDS_PROFILE_HOST_FILE} not found; using FastDDS defaults."
+    FAST_DDS_DOCKER_ARGS=""
+fi
 
 ## 起動中のコンテナは全て一旦停止
 docker stop -t 1 gui vslam except_handle tester >> /dev/null
@@ -11,6 +19,7 @@ docker run -it --rm -d --name tester --shm-size=1gb --privileged --net=host --ip
     -e ROS_LOCALHOST_ONLY=$(cat /triorb/params/ROS_LOCALHOST_ONLY) \
     -e ROS_DOMAIN_ID=$(cat /triorb/params/ROS_DOMAIN_ID) \
     -e ROS_PREFIX=$(cat /triorb/params/ROS_PREFIX) \
+    ${FAST_DDS_DOCKER_ARGS} \
     -v /dev:/dev \
     -v /sys/devices/:/sys/devices/ \
     -v /triorb/log:/log \

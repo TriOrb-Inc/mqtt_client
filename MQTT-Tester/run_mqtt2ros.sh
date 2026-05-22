@@ -14,6 +14,40 @@
 # Author: TriOrb Inc.
 #
 
+FAST_DDS_PROFILE_FILE=${FAST_DDS_PROFILE_FILE:-/params/fastdds_shm.xml}
+FAST_DDS_PROFILE_HOST_FILE=${FAST_DDS_PROFILE_HOST_FILE:-/triorb/params/${FAST_DDS_PROFILE_FILE##*/}}
+if [ -f "${FAST_DDS_PROFILE_HOST_FILE}" ]; then
+    FAST_DDS_DOCKER_ARGS="-e FASTRTPS_DEFAULT_PROFILES_FILE=${FAST_DDS_PROFILE_FILE} -e FASTDDS_DEFAULT_PROFILES_FILE=${FAST_DDS_PROFILE_FILE}"
+else
+    echo "WARNING: FastDDS profile ${FAST_DDS_PROFILE_HOST_FILE} not found; using FastDDS defaults."
+    FAST_DDS_DOCKER_ARGS=""
+fi
+
+restart_mqtt_ros_if_fastdds_profile_changed() {
+  if ! docker ps --format '{{.Names}}' | grep -qx mqtt-ros; then
+    return 0
+  fi
+
+  if [ -z "${FAST_DDS_DOCKER_ARGS}" ]; then
+    if docker inspect mqtt-ros --format '{{range .Config.Env}}{{println .}}{{end}}' \
+        | grep -Eq '^FAST(RTPS|DDS)_DEFAULT_PROFILES_FILE='; then
+      echo "Restarting MQTT client to clear missing FastDDS profile..."
+      docker stop mqtt-ros > /dev/null 2>&1
+    fi
+    return 0
+  fi
+
+  if docker inspect mqtt-ros --format '{{range .Config.Env}}{{println .}}{{end}}' \
+      | grep -qx "FASTRTPS_DEFAULT_PROFILES_FILE=${FAST_DDS_PROFILE_FILE}" \
+      && docker inspect mqtt-ros --format '{{range .Config.Env}}{{println .}}{{end}}' \
+      | grep -qx "FASTDDS_DEFAULT_PROFILES_FILE=${FAST_DDS_PROFILE_FILE}"; then
+    return 0
+  fi
+
+  echo "Restarting MQTT client to apply FastDDS profile..."
+  docker stop mqtt-ros > /dev/null 2>&1
+}
+
 sudo mkdir -p /triorb/mqtt/data > /dev/null 2>&1
 sudo mkdir -p /triorb/mqtt/log > /dev/null 2>&1
 sudo chmod 777 -R /triorb/mqtt
@@ -44,6 +78,8 @@ else
   echo "EMQX broker is already running."
 fi
 
+restart_mqtt_ros_if_fastdds_profile_changed
+
 # Check if MQTT client is running
 # If not, start it
 docker ps | grep mqtt-ros > /dev/null 2>&1
@@ -55,6 +91,7 @@ if [ $? -ne 0 ]; then
           -e ROS_DOMAIN_ID=$(cat /triorb/params/ROS_DOMAIN_ID) \
           -e ROS_PREFIX=$(cat /triorb/params/ROS_PREFIX) \
           -e MQTT_PREFIX=$(cat /triorb/params/ROS_PREFIX) \
+          ${FAST_DDS_DOCKER_ARGS} \
           -v /dev:/dev \
           -v /sys/devices/:/sys/devices/ \
           -v /triorb/log:/log \
