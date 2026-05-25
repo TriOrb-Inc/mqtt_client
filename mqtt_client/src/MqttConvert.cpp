@@ -560,6 +560,7 @@ namespace mqtt_client {
         float32 deg     # [deg]
     */
     void toTriorbRunResult(const json& j_msg, triorb_drive_interface::msg::TriorbRunResult &msg) {
+        msg.request_id = (j_msg.contains("request_id") && !j_msg["request_id"].is_null()) ? j_msg["request_id"].get<uint32_t>() : 0U;
         msg.success = j_msg["success"].get<bool>();
         msg.info = j_msg["info"].get<uint8_t>();
         if (j_msg.contains("position")) {
@@ -567,6 +568,7 @@ namespace mqtt_client {
         }
     }
     void fromTriorbRunResult(const triorb_drive_interface::msg::TriorbRunResult &msg, json &j_msg) {
+        j_msg["request_id"] = msg.request_id;
         j_msg["success"] = msg.success;
         j_msg["info"] = msg.info;
         fromTriorbPos3(msg.position, j_msg["position"]);
@@ -590,6 +592,7 @@ namespace mqtt_client {
         if (j_msg.contains("header")) {
             toHeader(j_msg["header"], msg.header);
         }
+        msg.request_id = (j_msg.contains("request_id") && !j_msg["request_id"].is_null()) ? j_msg["request_id"].get<uint32_t>() : 0U;
         msg.success = j_msg["success"].get<bool>();
         msg.info = j_msg["info"].get<uint8_t>();
         if (j_msg.contains("position")) {
@@ -598,6 +601,7 @@ namespace mqtt_client {
     }
     void fromTriorbRunResultStamped(const triorb_drive_interface::msg::TriorbRunResultStamped &msg, json &j_msg) {
         fromHeader(msg.header, j_msg["header"]);
+        j_msg["request_id"] = msg.request_id;
         j_msg["success"] = msg.success;
         j_msg["info"] = msg.info;
         fromTriorbPos3(msg.position, j_msg["position"]);
@@ -779,6 +783,7 @@ namespace mqtt_client {
         uint8[] disable_camera_idx  #
     */
     void toTriorbSetPos3(const json& j_msg, triorb_drive_interface::msg::TriorbSetPos3 &msg) {
+        msg.request_id = (j_msg.contains("request_id") && !j_msg["request_id"].is_null()) ? j_msg["request_id"].get<uint32_t>() : 0U;
         if (j_msg.contains("pos")) {
             toTriorbRunPos3(j_msg["pos"], msg.pos);
         }
@@ -787,6 +792,7 @@ namespace mqtt_client {
         }
     }
     void fromTriorbSetPos3(const triorb_drive_interface::msg::TriorbSetPos3 &msg, json &j_msg) {
+        j_msg["request_id"] = msg.request_id;
         fromTriorbRunPos3(msg.pos, j_msg["pos"]);
         fromTriorbRunSetting(msg.setting, j_msg["setting"]);
     }
