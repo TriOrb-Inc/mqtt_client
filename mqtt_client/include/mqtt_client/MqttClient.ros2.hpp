@@ -31,6 +31,7 @@ SOFTWARE.
 #include <map>
 #include <memory>
 #include <optional>
+#include <regex>
 #include <string>
 
 #define FMT_HEADER_ONLY
@@ -39,10 +40,22 @@ SOFTWARE.
 #include <mqtt_client_interfaces/srv/is_connected.hpp>
 #include <mqtt_client_interfaces/srv/new_mqtt2_ros_bridge.hpp>
 #include <mqtt_client_interfaces/srv/new_ros2_mqtt_bridge.hpp>
+#include <mqtt_client_interfaces/msg/ros2_mqtt_interface.hpp>
+#include <mqtt_client_interfaces/msg/mqtt2_ros_interface.hpp>
+#include <rclcpp/qos.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/serialization.hpp>
-#include <rclcpp/qos.hpp>
 #include <std_msgs/msg/float64.hpp>
+#include <std_msgs/msg/string.hpp>
+
+// ループバック防止
+#define MQTT_CLIENT_LOOPBACK_PROTECTION_MS 90
+#include <unordered_map>
+#include <mutex>
+#include <chrono>
+// ガード用のキャッシュ
+std::unordered_map<std::string, std::pair<std::string, std::chrono::steady_clock::time_point>> recent_ros_msgs_;
+std::mutex recent_ros_msgs_mutex_;
 
 
 /**
@@ -176,7 +189,8 @@ class MqttClient : public rclcpp::Node,
    *
    * @return  std::filesystem::path  path variable
    */
-  std::filesystem::path resolvePath(const std::string& path_string);
+  std::filesystem::path resolvePath(const std::string& path_string,
+                                    bool warn_if_missing = true);
 
   /**
    * @brief Initializes broker connection and subscriptions.
@@ -230,6 +244,31 @@ class MqttClient : public rclcpp::Node,
    * @brief Connects to the broker using the member client and options.
    */
   void connect();
+
+  /**
+   * @brief Records an MQTT health issue that should trigger restart if it persists.
+   */
+  void markMqttUnhealthy(const std::string& reason);
+
+  /**
+   * @brief Clears the MQTT health issue state.
+   */
+  void clearMqttUnhealthy();
+
+  /**
+   * @brief Returns whether an MQTT return code should be watched by the watchdog.
+   */
+  bool shouldWatchdogMqttRc(int rc) const;
+
+  /**
+   * @brief Returns the number of pending MQTT delivery tokens.
+   */
+  size_t pendingDeliveryTokenCount() const;
+
+  /**
+   * @brief Restarts the process if MQTT stays unhealthy for too long.
+   */
+  void mqttRecoveryWatchdog();
 
   /**
    * @brief Publishes a generic serialized ROS message to the MQTT broker.
@@ -339,6 +378,26 @@ class MqttClient : public rclcpp::Node,
   void newMqtt2RosBridge(
     mqtt_client_interfaces::srv::NewMqtt2RosBridge::Request::SharedPtr request,
     mqtt_client_interfaces::srv::NewMqtt2RosBridge::Response::SharedPtr response);
+
+  /**
+   * @brief ROS callback that dynamically creates an MQTT -> ROS mapping.
+   */
+  void callback_add_ros2mqtt(const mqtt_client_interfaces::msg::Ros2MqttInterface::SharedPtr msg);
+
+  /**
+   * @brief ROS callback that dynamically creates a ROS -> MQTT mapping.
+   */
+  void callback_add_mqtt2ros(const mqtt_client_interfaces::msg::Mqtt2RosInterface::SharedPtr msg);
+
+  /**
+   * @brief ROS callback that removes a ROS -> MQTT mapping.
+   */
+  void callback_remove_ros2mqtt(const std_msgs::msg::String::SharedPtr msg);
+
+  /**
+   * @brief ROS callback that removes a MQTT -> ROS mapping.
+   */
+  void callback_remove_mqtt2ros(const std_msgs::msg::String::SharedPtr msg);
 
   /**
    * @brief Callback for when the client receives a MQTT message from the
@@ -502,6 +561,11 @@ class MqttClient : public rclcpp::Node,
   rclcpp::TimerBase::SharedPtr check_subscriptions_timer_;
 
   /**
+   * @brief Timer to restart the process when MQTT stays unhealthy.
+   */
+  rclcpp::TimerBase::SharedPtr mqtt_recovery_watchdog_timer_;
+
+  /**
    * @brief ROS Service server for providing connection status
    */
   rclcpp::Service<mqtt_client_interfaces::srv::IsConnected>::SharedPtr
@@ -519,10 +583,51 @@ class MqttClient : public rclcpp::Node,
   rclcpp::Service<mqtt_client_interfaces::srv::NewMqtt2RosBridge>::SharedPtr
     new_mqtt2ros_bridge_service_;
 
+    
+  /**
+   * @brief ROS Topic subscriber for providing dynamic ROS to MQTT mappings.
+   */
+  rclcpp::Subscription<mqtt_client_interfaces::msg::Ros2MqttInterface>::SharedPtr sub_add_ros2mqtt_;
+
+  /**
+   * @brief ROS Topic subscriber for providing dynamic MQTT to ROS mappings.
+   */
+  rclcpp::Subscription<mqtt_client_interfaces::msg::Mqtt2RosInterface>::SharedPtr sub_add_mqtt2ros_;
+
+  /**
+   * @brief ROS Topic subscriber for removing dynamic ROS to MQTT mappings.
+   */
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_remove_ros2mqtt_;
+
+  /**
+   * @brief ROS Topic subscriber for removing dynamic MQTT to ROS mappings.
+   */
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_remove_mqtt2ros_;
+
+  /**
+   * @brief ROS Topic publisher for the result of dynamic mappings.
+   */
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_edit_dynamic_mapping_result_;
+
   /**
    * @brief Status variable keeping track of connection status to broker
    */
   bool is_connected_ = false;
+
+  /**
+   * @brief Mutex protecting MQTT health state shared across ROS/MQTT threads.
+   */
+  mutable std::mutex mqtt_health_mutex_;
+
+  /**
+   * @brief Timestamp from when MQTT first entered an unhealthy state.
+   */
+  std::optional<std::chrono::steady_clock::time_point> mqtt_unhealthy_since_;
+
+  /**
+   * @brief Human-readable reason for the current unhealthy state.
+   */
+  std::string mqtt_unhealthy_reason_;
 
   /**
    * @brief Broker parameters
@@ -568,6 +673,15 @@ class MqttClient : public rclcpp::Node,
    * @brief Prefix for ROS topics
    */
   std::string topic_prefix_ros_;
+  
+#ifdef HAVE_TRIORB_INTERFACE
+  /**
+   * @brief TriOrb ExceptHandler
+   */
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_except_node_registration_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_except_error_str_add_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_except_warn_str_add_;
+#endif // HAVE_TRIORB_INTERFACE
 };
 
 

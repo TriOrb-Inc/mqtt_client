@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Expires" content="15">
+  <script src="lib/roslib.min.js"></script>
+  <script src="lib/mqtt.min.js"></script>
+  <script src="lib/ros2mqtt.js"></script>
+</head>
+
+<body>
+
+  <div class="toumei">
+    <p id="mqtt-sub" style="white-space: pre-wrap;">
+      Waiting for messages...
+    </p>
+  </div>
+
+  <!-- _/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
+        _/_/_/_/_/_/_/_/_/_/_/_/ ↑ html components        _/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
+       _/_/_/_/_/_/_/_/_/_/_/_/  ↓ javascript components _/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
+      _/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/ -->
+
+  <!-- Connect ROS Server -->
+  <script>
+    const robot_ip = window.location.href.replace('http://', '').replace('https://', '').split(":")[0];
+    const ros2mqtt = new ROS2MQTT.Ros({
+      mqttUrl: `ws://${robot_ip}:8083/mqtt`,
+      mqttState: document.getElementById('mqtt-state')
+    });
+  </script>
+
+  <script src="prefix.js"></script>
+  <script src="topic_definition.js"></script>
+  <script src="subpub.js"></script>
+
+</body>
+
+</html>

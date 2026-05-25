@@ -30,6 +30,7 @@ SOFTWARE.
 #include <cstring>
 #include <vector>
 
+// clang-format off
 #include <mqtt_client/MqttClient.h>
 #include <mqtt_client_interfaces/RosMsgType.h>
 #include <pluginlib/class_list_macros.h>
@@ -51,6 +52,16 @@ SOFTWARE.
 #include <xmlrpcpp/XmlRpcException.h>
 #include <xmlrpcpp/XmlRpcValue.h>
 
+#include <std_msgs/msg/header.hpp>
+
+#include <geometry_msgs/msg/quaternion.hpp>
+#include <geometry_msgs/msg/transform.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
+
+#include <nlohmann/json.hpp> 
+using json = nlohmann::json;
+// clang-format on
 
 PLUGINLIB_EXPORT_CLASS(mqtt_client::MqttClient, nodelet::Nodelet)
 
@@ -142,7 +153,73 @@ bool primitiveRosMessageToString(const topic_tools::ShapeShifter::ConstPtr& msg,
              ros::message_traits::MD5Sum<std_msgs::Float64>::value()) {
     primitive = std::to_string(msg->instantiate<std_msgs::Float64>()->data);
   } else {
-    found_primitive = false;
+    NODELET_INFO("Check message type '%s' primitive", msg_type_md5.c_str());
+    json j_msg = json();
+    if (msg_type_md5 ==
+        ros::message_traits::MD5Sum<std_msgs::Header>::value()) {
+      std_msgs::msg::Header msg_header;
+      msg->deserializeRosMessage(msg_header);
+      j_msg["seq"] = msg_header.seq;
+      j_msg["stamp"]["sec"] = msg_header.stamp.sec;
+      j_msg["stamp"]["nanosec"] = msg_header.stamp.nanosec;
+      j_msg["frame_id"] = msg_header.frame_id;
+    } else if (msg_type_md5 == ros::message_traits::MD5Sum<
+                                 geometry_msgs::msg::Transform>::value()) {
+      geometry_msgs::msg::Transform msg_transform;
+      msg->deserializeRosMessage(msg_transform);
+      j_msg["translation"]["x"] = msg_transform.translation.x;
+      j_msg["translation"]["y"] = msg_transform.translation.y;
+      j_msg["translation"]["z"] = msg_transform.translation.z;
+      j_msg["rotation"]["x"] = msg_transform.rotation.x;
+      j_msg["rotation"]["y"] = msg_transform.rotation.y;
+      j_msg["rotation"]["z"] = msg_transform.rotation.z;
+      j_msg["rotation"]["w"] = msg_transform.rotation.w;
+    } else if (msg_type_md5 ==
+               ros::message_traits::MD5Sum<
+                 geometry_msgs::msg::TransformStamped>::value()) {
+      geometry_msgs::msg::TransformStamped msg_transform_stamped;
+      msg->deserializeRosMessage(msg_transform_stamped);
+      j_msg["header"]["seq"] = msg_transform_stamped.header.seq;
+      j_msg["header"]["stamp"]["sec"] = msg_transform_stamped.header.stamp.sec;
+      j_msg["header"]["stamp"]["nanosec"] =
+        msg_transform_stamped.header.stamp.nanosec;
+      j_msg["header"]["frame_id"] = msg_transform_stamped.header.frame_id;
+      j_msg["child_frame_id"] = msg_transform_stamped.child_frame_id;
+      j_msg["transform"]["translation"]["x"] =
+        msg_transform_stamped.transform.translation.x;
+      j_msg["transform"]["translation"]["y"] =
+        msg_transform_stamped.transform.translation.y;
+      j_msg["transform"]["translation"]["z"] =
+        msg_transform_stamped.transform.translation.z;
+      j_msg["transform"]["rotation"]["x"] =
+        msg_transform_stamped.transform.rotation.x;
+      j_msg["transform"]["rotation"]["y"] =
+        msg_transform_stamped.transform.rotation.y;
+      j_msg["transform"]["rotation"]["z"] =
+        msg_transform_stamped.transform.rotation.z;
+      j_msg["transform"]["rotation"]["w"] =
+        msg_transform_stamped.transform.rotation.w;
+    } else if (msg_type_md5 == ros::message_traits::MD5Sum<
+                                 geometry_msgs::msg::Vector3>::value()) {
+      geometry_msgs::msg::Vector3 msg_vector3;
+      msg->deserializeRosMessage(msg_vector3);
+      j_msg["x"] = msg_vector3.x;
+      j_msg["y"] = msg_vector3.y;
+      j_msg["z"] = msg_vector3.z;
+    } else if (msg_type_md5 == ros::message_traits::MD5Sum<
+                                 geometry_msgs::msg::Quaternion>::value()) {
+      geometry_msgs::msg::Quaternion msg_quaternion;
+      msg->deserializeRosMessage(msg_quaternion);
+      j_msg["x"] = msg_quaternion.x;
+      j_msg["y"] = msg_quaternion.y;
+      j_msg["z"] = msg_quaternion.z;
+      j_msg["w"] = msg_quaternion.w;
+    } else {
+      found_primitive = false;
+    }
+    if (found_primitive) {
+      primitive = j_msg.dump();
+    }
   }
 
   return found_primitive;
@@ -518,7 +595,7 @@ void MqttClient::ros2mqtt(const topic_tools::ShapeShifter::ConstPtr& ros_msg,
       payload_buffer = std::vector<uint8_t>(payload.begin(), payload.end());
     } else {
       NODELET_WARN(
-        "Cannot send ROS message of type '%s' as primitive message, "
+        "2. Cannot send ROS message of type '%s' as primitive message, "
         "check supported primitive types",
         ros_msg_type.name.c_str());
       return;
