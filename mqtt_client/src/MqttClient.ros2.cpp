@@ -26,12 +26,15 @@ SOFTWARE.
 
 
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <dlfcn.h>
 #include <memory>
 #include <random>
 #include <stdexcept>
+#include <type_traits>
 #include <vector>
 
 // clang-format off
@@ -66,9 +69,17 @@ namespace {
 
 constexpr auto kMqttRecoveryWatchdogPeriod = std::chrono::seconds(1);
 constexpr auto kMqttRecoveryTimeout = std::chrono::seconds(30);
+constexpr auto kMqttQuicReconnectPeriod = std::chrono::seconds(2);
 constexpr int kDefaultClientBufferSize = 2000;
 constexpr char kDefaultClientIdPrefix[] = "triorb_mqtt_";
 constexpr char kDefaultClientBufferRoot[] = "mqtt_client_buffer";
+constexpr int kNngSendFlags = 0;  // nng_sendmsg takes NNG_FLAG_*; 0 keeps blocking send semantics.
+constexpr char kNngOptSendTimeout[] = "send-timeout";
+constexpr uint8_t kMqttProtocolVersionV311 = 4;
+constexpr int kNngMqttConnect = 0x01;
+constexpr int kNngMqttPublish = 0x03;
+constexpr int kNngMqttSubscribe = 0x08;
+constexpr char kNngMqttSqliteOption[] = "mqtt-sqlite-option";
 
 std::string generateRandomClientId() {
 
@@ -83,6 +94,14 @@ std::string generateRandomClientId() {
     client_id.push_back(kAlphabet[distribution(generator)]);
 
   return client_id;
+}
+
+std::string toLowerCopy(std::string value) {
+
+  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+  return value;
 }
 
 }  // namespace
@@ -909,8 +928,34 @@ bool primitiveRosMessageToString(
     msg.data = std::string("[instant]") + this->get_name();
     this->pub_except_node_registration_->publish(msg);
 #endif
-    loadParameters();
-    setup();
+    try {
+      loadParameters();
+    } catch (const rclcpp::exceptions::InvalidParameterValueException& e) {
+      RCLCPP_ERROR(get_logger(), "Failed to load mqtt_client parameters: %s", e.what());
+      throw;
+    }
+    try {
+      setup();
+    } catch (const rclcpp::exceptions::InvalidParameterValueException& e) {
+      RCLCPP_ERROR(get_logger(), "Failed to set up mqtt_client: %s", e.what());
+      throw;
+    }
+  }
+
+  MqttClient::~MqttClient() {
+
+    if (quic_socket_opened_ && nng_.nng_close) {
+      nng_.nng_close(quic_socket_);
+      quic_socket_opened_ = false;
+    }
+    if (quic_sqlite_option_ && nng_.nng_mqtt_free_sqlite_opt) {
+      nng_.nng_mqtt_free_sqlite_opt(quic_sqlite_option_);
+      quic_sqlite_option_ = nullptr;
+    }
+    if (nng_.handle) {
+      dlclose(nng_.handle);
+      nng_.handle = nullptr;
+    }
   }
 
   void MqttClient::loadParameters() {
@@ -925,6 +970,10 @@ bool primitiveRosMessageToString(
     declare_parameter("broker.port", rclcpp::ParameterType::PARAMETER_INTEGER,
                       param_desc);
     param_desc.description =
+      "MQTT transport backend: tcp, ssl, or quic";
+    declare_parameter("broker.transport",
+                      rclcpp::ParameterType::PARAMETER_STRING, param_desc);
+    param_desc.description =
       "username used for authenticating to the broker (if empty, will try to "
       "connect anonymously)";
     declare_parameter("broker.user", rclcpp::ParameterType::PARAMETER_STRING,
@@ -938,6 +987,56 @@ bool primitiveRosMessageToString(
     param_desc.description =
       "CA certificate file trusted by client (relative to ROS_HOME)";
     declare_parameter("broker.tls.ca_certificate",
+                      rclcpp::ParameterType::PARAMETER_STRING, param_desc);
+    param_desc.description =
+      "NanoSDK/NNG shared library path used when broker.transport=quic";
+    declare_parameter("broker.quic.library",
+                      rclcpp::ParameterType::PARAMETER_STRING, param_desc);
+    param_desc.description =
+      "whether NanoSDK should prioritize QoS packets on QUIC";
+    declare_parameter("broker.quic.qos_first",
+                      rclcpp::ParameterType::PARAMETER_BOOL, param_desc);
+    param_desc.description = "whether NanoSDK QUIC multi-stream mode is used";
+    declare_parameter("broker.quic.multi_stream",
+                      rclcpp::ParameterType::PARAMETER_BOOL, param_desc);
+    param_desc.description = "QUIC keepalive timeout in seconds";
+    declare_parameter("broker.quic.keep_alive_sec",
+                      rclcpp::ParameterType::PARAMETER_INTEGER, param_desc);
+    param_desc.description = "QUIC handshake idle timeout in seconds";
+    declare_parameter("broker.quic.connect_timeout_sec",
+                      rclcpp::ParameterType::PARAMETER_INTEGER, param_desc);
+    param_desc.description = "QUIC disconnect timeout in seconds";
+    declare_parameter("broker.quic.disconnect_timeout_sec",
+                      rclcpp::ParameterType::PARAMETER_INTEGER, param_desc);
+    param_desc.description = "QUIC idle timeout in seconds";
+    declare_parameter("broker.quic.idle_timeout_sec",
+                      rclcpp::ParameterType::PARAMETER_INTEGER, param_desc);
+    param_desc.description = "finite timeout in milliseconds for QUIC MQTT send";
+    declare_parameter("broker.quic.send_timeout_ms",
+                      rclcpp::ParameterType::PARAMETER_INTEGER, param_desc);
+    param_desc.description = "QUIC congestion control: 0=cubic, 1=bbr";
+    declare_parameter("broker.quic.congestion_control",
+                      rclcpp::ParameterType::PARAMETER_INTEGER, param_desc);
+    param_desc.description = "whether explicit QUIC client TLS material is used";
+    declare_parameter("broker.quic.tls.enabled",
+                      rclcpp::ParameterType::PARAMETER_BOOL, param_desc);
+    param_desc.description = "whether QUIC should verify broker certificate";
+    declare_parameter("broker.quic.tls.verify_peer",
+                      rclcpp::ParameterType::PARAMETER_BOOL, param_desc);
+    param_desc.description = "whether QUIC should fail if broker certificate is missing";
+    declare_parameter("broker.quic.tls.fail_if_no_peer_cert",
+                      rclcpp::ParameterType::PARAMETER_BOOL, param_desc);
+    param_desc.description = "QUIC CA certificate path";
+    declare_parameter("broker.quic.tls.ca_certificate",
+                      rclcpp::ParameterType::PARAMETER_STRING, param_desc);
+    param_desc.description = "QUIC client certificate path";
+    declare_parameter("broker.quic.tls.certificate",
+                      rclcpp::ParameterType::PARAMETER_STRING, param_desc);
+    param_desc.description = "QUIC client private key path";
+    declare_parameter("broker.quic.tls.key",
+                      rclcpp::ParameterType::PARAMETER_STRING, param_desc);
+    param_desc.description = "QUIC client private key password";
+    declare_parameter("broker.quic.tls.password",
                       rclcpp::ParameterType::PARAMETER_STRING, param_desc);
 
     param_desc.description =
@@ -1090,13 +1189,52 @@ bool primitiveRosMessageToString(
     std::string broker_tls_ca_certificate;
     loadParameter("broker.host", broker_config_.host, "localhost");
     loadParameter("broker.port", broker_config_.port, 1883);
-    if (loadParameter("broker.user", broker_config_.user)) {
+    loadParameter("broker.transport", broker_config_.transport, "");
+    if (loadParameter("broker.user", broker_config_.user) &&
+        !broker_config_.user.empty()) {
       loadParameter("broker.pass", broker_config_.pass, "");
     }
     if (loadParameter("broker.tls.enabled", broker_config_.tls.enabled,
                       false)) {
       loadParameter("broker.tls.ca_certificate", broker_tls_ca_certificate,
                     "/etc/ssl/certs/ca-certificates.crt");
+    }
+    broker_config_.transport = toLowerCopy(broker_config_.transport);
+    if (broker_config_.transport.empty()) {
+      broker_config_.transport = broker_config_.tls.enabled ? "ssl" : "tcp";
+    }
+    if (broker_config_.transport == "quic") {
+      loadParameter("broker.quic.library", broker_config_.quic.library,
+                    "libnng.so");
+      loadParameter("broker.quic.qos_first", broker_config_.quic.qos_first,
+                    true);
+      loadParameter("broker.quic.multi_stream", broker_config_.quic.multi_stream,
+                    false);
+      loadParameter("broker.quic.keep_alive_sec",
+                    broker_config_.quic.keep_alive_sec, 30);
+      loadParameter("broker.quic.connect_timeout_sec",
+                    broker_config_.quic.connect_timeout_sec, 60);
+      loadParameter("broker.quic.disconnect_timeout_sec",
+                    broker_config_.quic.disconnect_timeout_sec, 30);
+      loadParameter("broker.quic.idle_timeout_sec",
+                    broker_config_.quic.idle_timeout_sec, 30);
+      loadParameter("broker.quic.send_timeout_ms",
+                    broker_config_.quic.send_timeout_ms, 2000);
+      loadParameter("broker.quic.congestion_control",
+                    broker_config_.quic.congestion_control, 0);
+      loadParameter("broker.quic.tls.enabled",
+                    broker_config_.quic.tls_enabled, false);
+      loadParameter("broker.quic.tls.verify_peer",
+                    broker_config_.quic.verify_peer, false);
+      loadParameter("broker.quic.tls.fail_if_no_peer_cert",
+                    broker_config_.quic.fail_if_no_peer_cert, false);
+      loadParameter("broker.quic.tls.ca_certificate",
+                    broker_config_.quic.ca_certificate, "");
+      loadParameter("broker.quic.tls.certificate",
+                    broker_config_.quic.certificate, "");
+      loadParameter("broker.quic.tls.key", broker_config_.quic.key, "");
+      loadParameter("broker.quic.tls.password",
+                    broker_config_.quic.key_password, "");
     }
 
     // load client parameters from parameter server
@@ -1120,7 +1258,8 @@ bool primitiveRosMessageToString(
                   client_config_.buffer.size);
     }
     if (loadParameter("client.last_will.topic",
-                      client_config_.last_will.topic)) {
+                      client_config_.last_will.topic) &&
+        !client_config_.last_will.topic.empty()) {
       loadParameter("client.last_will.message",
                     client_config_.last_will.message, "offline");
       loadParameter("client.last_will.qos", client_config_.last_will.qos, 0);
@@ -1146,6 +1285,8 @@ bool primitiveRosMessageToString(
     loadParameter("prefix.ros", this->topic_prefix_ros_, "");
     RCLCPP_INFO(get_logger(), "Using MQTT broker %s:%d",
                 broker_config_.host.c_str(), broker_config_.port);
+    RCLCPP_INFO(get_logger(), "Using MQTT transport '%s'",
+                broker_config_.transport.c_str());
     RCLCPP_INFO(get_logger(), "Prefix for MQTT topics: '%s'",
                 this->topic_prefix_mqtt_.c_str());
     RCLCPP_INFO(get_logger(), "Prefix for ROS topics: '%s'",
@@ -1156,6 +1297,17 @@ bool primitiveRosMessageToString(
     client_config_.buffer.directory = resolvePath(client_buffer_directory, false);
     client_config_.tls.certificate = resolvePath(client_tls_certificate);
     client_config_.tls.key = resolvePath(client_tls_key);
+    if (!broker_config_.quic.ca_certificate.empty()) {
+      broker_config_.quic.ca_certificate =
+        resolvePath(broker_config_.quic.ca_certificate).string();
+    }
+    if (!broker_config_.quic.certificate.empty()) {
+      broker_config_.quic.certificate =
+        resolvePath(broker_config_.quic.certificate).string();
+    }
+    if (!broker_config_.quic.key.empty()) {
+      broker_config_.quic.key = resolvePath(broker_config_.quic.key).string();
+    }
     if (client_config_.buffer.enabled) {
       try {
         std::filesystem::create_directories(client_config_.buffer.directory);
@@ -1174,12 +1326,17 @@ bool primitiveRosMessageToString(
     }
 
     // parse bridge parameters
+    auto get_set_parameter =
+      [this](const std::string& key, rclcpp::Parameter& parameter) {
+        if (!get_parameter(key, parameter)) return false;
+        return parameter.get_type() != rclcpp::ParameterType::PARAMETER_NOT_SET;
+      };
 
     // ros2mqtt
     for (const auto& ros_topic_raw : ros2mqtt_ros_topics) {
 
       rclcpp::Parameter mqtt_topic_param;
-      if (get_parameter(fmt::format("bridge.ros2mqtt.{}.mqtt_topic", ros_topic_raw),
+      if (get_set_parameter(fmt::format("bridge.ros2mqtt.{}.mqtt_topic", ros_topic_raw),
                         mqtt_topic_param)) {
 
         const std::string ros_topic = this->topic_prefix_ros_ + ros_topic_raw;
@@ -1191,14 +1348,14 @@ bool primitiveRosMessageToString(
 
         // ros2mqtt[k]/primitive
         rclcpp::Parameter primitive_param;
-        if (get_parameter(
+        if (get_set_parameter(
               fmt::format("bridge.ros2mqtt.{}.primitive", ros_topic_raw),
               primitive_param))
           ros2mqtt.primitive = primitive_param.as_bool();
 
         // ros2mqtt[k]/ros_type
         rclcpp::Parameter ros_type_param;
-        if (get_parameter(fmt::format("bridge.ros2mqtt.{}.ros_type", ros_topic_raw),
+        if (get_set_parameter(fmt::format("bridge.ros2mqtt.{}.ros_type", ros_topic_raw),
                           ros_type_param)) {
           ros2mqtt.ros.msg_type = ros_type_param.as_string();
           ros2mqtt.fixed_type = true;
@@ -1208,7 +1365,7 @@ bool primitiveRosMessageToString(
 
         // ros2mqtt[k]/inject_timestamp
         rclcpp::Parameter stamped_param;
-        if (get_parameter(
+        if (get_set_parameter(
               fmt::format("bridge.ros2mqtt.{}.inject_timestamp", ros_topic_raw),
               stamped_param))
           ros2mqtt.stamped = stamped_param.as_bool();
@@ -1223,14 +1380,14 @@ bool primitiveRosMessageToString(
 
         // ros2mqtt[k]/advanced/ros/queue_size
         rclcpp::Parameter queue_size_param;
-        if (get_parameter(
+        if (get_set_parameter(
               fmt::format("bridge.ros2mqtt.{}.advanced.ros.queue_size",
                           ros_topic_raw),
               queue_size_param))
           ros2mqtt.ros.queue_size = queue_size_param.as_int();
 
         rclcpp::Parameter durability_param;
-        if (get_parameter(
+        if (get_set_parameter(
               fmt::format("bridge.ros2mqtt.{}.advanced.ros.qos.durability",
                           ros_topic_raw),
               durability_param)) {
@@ -1256,7 +1413,7 @@ bool primitiveRosMessageToString(
         }
 
         rclcpp::Parameter reliability_param;
-        if (get_parameter(
+        if (get_set_parameter(
               fmt::format("bridge.ros2mqtt.{}.advanced.ros.qos.reliability",
                           ros_topic_raw),
               reliability_param)) {
@@ -1283,14 +1440,14 @@ bool primitiveRosMessageToString(
 
         // ros2mqtt[k]/advanced/mqtt/qos
         rclcpp::Parameter qos_param;
-        if (get_parameter(
+        if (get_set_parameter(
               fmt::format("bridge.ros2mqtt.{}.advanced.mqtt.qos", ros_topic_raw),
               qos_param))
           ros2mqtt.mqtt.qos = qos_param.as_int();
 
         // ros2mqtt[k]/advanced/mqtt/retained
         rclcpp::Parameter retained_param;
-        if (get_parameter(
+        if (get_set_parameter(
               fmt::format("bridge.ros2mqtt.{}.advanced.mqtt.retained",
                           ros_topic_raw),
               retained_param))
@@ -1315,7 +1472,7 @@ bool primitiveRosMessageToString(
     for (const auto& mqtt_topic_raw : mqtt2ros_mqtt_topics) {
 
       rclcpp::Parameter ros_topic_param;
-      if (get_parameter(fmt::format("bridge.mqtt2ros.{}.ros_topic", mqtt_topic_raw),
+      if (get_set_parameter(fmt::format("bridge.mqtt2ros.{}.ros_topic", mqtt_topic_raw),
                         ros_topic_param)) {
 
         const std::string mqtt_topic = this->topic_prefix_mqtt_ + mqtt_topic_raw;
@@ -1327,14 +1484,14 @@ bool primitiveRosMessageToString(
 
         // mqtt2ros[k]/primitive
         rclcpp::Parameter primitive_param;
-        if (get_parameter(
+        if (get_set_parameter(
               fmt::format("bridge.mqtt2ros.{}.primitive", mqtt_topic_raw),
               primitive_param))
           mqtt2ros.primitive = primitive_param.as_bool();
 
 
         rclcpp::Parameter ros_type_param;
-        if (get_parameter(
+        if (get_set_parameter(
               fmt::format("bridge.mqtt2ros.{}.ros_type", mqtt_topic_raw),
               ros_type_param)) {
           mqtt2ros.ros.msg_type = ros_type_param.as_string();
@@ -1346,21 +1503,21 @@ bool primitiveRosMessageToString(
 
         // mqtt2ros[k]/advanced/mqtt/qos
         rclcpp::Parameter qos_param;
-        if (get_parameter(
+        if (get_set_parameter(
               fmt::format("bridge.mqtt2ros.{}.advanced.mqtt.qos", mqtt_topic_raw),
               qos_param))
           mqtt2ros.mqtt.qos = qos_param.as_int();
 
         // mqtt2ros[k]/advanced/ros/queue_size
         rclcpp::Parameter queue_size_param;
-        if (get_parameter(
+        if (get_set_parameter(
               fmt::format("bridge.mqtt2ros.{}.advanced.ros.queue_size",
                           mqtt_topic_raw),
               queue_size_param))
           mqtt2ros.ros.queue_size = queue_size_param.as_int();
 
         rclcpp::Parameter durability_param;
-        if (get_parameter(
+        if (get_set_parameter(
               fmt::format("bridge.mqtt2ros.{}.advanced.ros.qos.durability",
                           mqtt_topic_raw),
               durability_param)) {
@@ -1384,7 +1541,7 @@ bool primitiveRosMessageToString(
         }
 
         rclcpp::Parameter reliability_param;
-        if (get_parameter(
+        if (get_set_parameter(
               fmt::format("bridge.mqtt2ros.{}.advanced.ros.qos.reliability",
                           mqtt_topic_raw),
               reliability_param)) {
@@ -1409,7 +1566,7 @@ bool primitiveRosMessageToString(
 
         // mqtt2ros[k]/advanced/ros/latched
         rclcpp::Parameter latched_param;
-        if (get_parameter(fmt::format("bridge.mqtt2ros.{}.advanced.ros.latched",
+        if (get_set_parameter(fmt::format("bridge.mqtt2ros.{}.advanced.ros.latched",
                                       mqtt_topic_raw),
                           latched_param)) {
           mqtt2ros.ros.latched = latched_param.as_bool();
@@ -1449,7 +1606,11 @@ bool primitiveRosMessageToString(
 
 
   bool MqttClient::loadParameter(const std::string& key, std::string& value) {
-    bool found = get_parameter(key, value);
+    rclcpp::Parameter param;
+    bool found = get_parameter(key, param);
+    if (!found || param.get_type() == rclcpp::ParameterType::PARAMETER_NOT_SET)
+      return false;
+    found = get_parameter(key, value);
     if (found)
       RCLCPP_DEBUG(get_logger(), "Retrieved parameter '%s' = '%s'", key.c_str(),
                    value.c_str());
@@ -1459,7 +1620,14 @@ bool primitiveRosMessageToString(
 
   bool MqttClient::loadParameter(const std::string& key, std::string& value,
                                  const std::string& default_value) {
-    bool found = get_parameter_or(key, value, default_value);
+    rclcpp::Parameter param;
+    bool found = get_parameter(key, param);
+    if (found && param.get_type() != rclcpp::ParameterType::PARAMETER_NOT_SET) {
+      found = get_parameter(key, value);
+    } else {
+      value = default_value;
+      found = false;
+    }
     if (!found)
       RCLCPP_WARN(get_logger(), "Parameter '%s' not set, defaulting to '%s'",
                   key.c_str(), default_value.c_str());
@@ -1719,7 +1887,241 @@ bool primitiveRosMessageToString(
     }
   }
 
+  bool MqttClient::usingQuicTransport() const {
+
+    return broker_config_.transport == "quic";
+  }
+
+  std::string MqttClient::mqttServerUri() const {
+
+    if (usingQuicTransport()) return quic_uri_;
+    return client_ ? client_->get_server_uri() : std::string();
+  }
+
+  bool MqttClient::isMqttTransportConnected() {
+
+    if (usingQuicTransport()) return isConnected();
+    return client_ && client_->is_connected();
+  }
+
+  bool MqttClient::loadNngQuicApi() {
+
+    if (nng_.handle) return true;
+
+    std::vector<std::string> candidates;
+    if (!broker_config_.quic.library.empty())
+      candidates.push_back(broker_config_.quic.library);
+    candidates.push_back("libnng.so.1");
+    candidates.push_back("libnng.so");
+
+    for (const auto& candidate : candidates) {
+      nng_.handle = dlopen(candidate.c_str(), RTLD_NOW | RTLD_LOCAL);
+      if (nng_.handle) break;
+    }
+    if (!nng_.handle) {
+      RCLCPP_ERROR(get_logger(), "NanoSDK/NNG library load failed: %s",
+                   dlerror());
+      return false;
+    }
+
+    auto load_symbol = [this](auto& fn, const char* name) {
+      fn = reinterpret_cast<std::remove_reference_t<decltype(fn)>>(
+        dlsym(nng_.handle, name));
+      return fn != nullptr;
+    };
+
+    bool ok = true;
+    ok &= load_symbol(nng_.nng_mqtt_quic_client_open_conf,
+                      "nng_mqtt_quic_client_open_conf");
+    ok &= load_symbol(nng_.nng_mqtt_quic_set_connect_cb,
+                      "nng_mqtt_quic_set_connect_cb");
+    ok &= load_symbol(nng_.nng_mqtt_quic_set_disconnect_cb,
+                      "nng_mqtt_quic_set_disconnect_cb");
+    ok &= load_symbol(nng_.nng_mqtt_quic_set_msg_recv_cb,
+                      "nng_mqtt_quic_set_msg_recv_cb");
+    ok &= load_symbol(nng_.nng_mqtt_msg_alloc, "nng_mqtt_msg_alloc");
+    ok &= load_symbol(nng_.nng_mqtt_msg_set_packet_type,
+                      "nng_mqtt_msg_set_packet_type");
+    ok &= load_symbol(nng_.nng_mqtt_msg_set_connect_proto_version,
+                      "nng_mqtt_msg_set_connect_proto_version");
+    ok &= load_symbol(nng_.nng_mqtt_msg_set_connect_keep_alive,
+                      "nng_mqtt_msg_set_connect_keep_alive");
+    ok &= load_symbol(nng_.nng_mqtt_msg_set_connect_client_id,
+                      "nng_mqtt_msg_set_connect_client_id");
+    ok &= load_symbol(nng_.nng_mqtt_msg_set_connect_clean_session,
+                      "nng_mqtt_msg_set_connect_clean_session");
+    ok &= load_symbol(nng_.nng_mqtt_msg_set_publish_topic,
+                      "nng_mqtt_msg_set_publish_topic");
+    ok &= load_symbol(nng_.nng_mqtt_msg_set_publish_payload,
+                      "nng_mqtt_msg_set_publish_payload");
+    ok &= load_symbol(nng_.nng_mqtt_msg_set_publish_qos,
+                      "nng_mqtt_msg_set_publish_qos");
+    ok &= load_symbol(nng_.nng_mqtt_msg_set_publish_retain,
+                      "nng_mqtt_msg_set_publish_retain");
+    ok &= load_symbol(nng_.nng_mqtt_msg_set_publish_dup,
+                      "nng_mqtt_msg_set_publish_dup");
+    ok &= load_symbol(nng_.nng_mqtt_msg_get_publish_topic,
+                      "nng_mqtt_msg_get_publish_topic");
+    ok &= load_symbol(nng_.nng_mqtt_msg_get_publish_payload,
+                      "nng_mqtt_msg_get_publish_payload");
+    ok &= load_symbol(nng_.nng_mqtt_msg_set_subscribe_topics,
+                      "nng_mqtt_msg_set_subscribe_topics");
+    ok &= load_symbol(nng_.nng_msg_free, "nng_msg_free");
+    ok &= load_symbol(nng_.nng_sendmsg, "nng_sendmsg");
+    ok &= load_symbol(nng_.nng_close, "nng_close");
+    ok &= load_symbol(nng_.nng_strerror, "nng_strerror");
+    ok &= load_symbol(nng_.nng_socket_set_ms, "nng_socket_set_ms");
+
+    load_symbol(nng_.nng_mqtt_msg_set_connect_user_name,
+                "nng_mqtt_msg_set_connect_user_name");
+    load_symbol(nng_.nng_mqtt_msg_set_connect_password,
+                "nng_mqtt_msg_set_connect_password");
+    load_symbol(nng_.nng_mqtt_msg_set_connect_will_topic,
+                "nng_mqtt_msg_set_connect_will_topic");
+    load_symbol(nng_.nng_mqtt_msg_set_connect_will_msg,
+                "nng_mqtt_msg_set_connect_will_msg");
+    load_symbol(nng_.nng_mqtt_msg_set_connect_will_retain,
+                "nng_mqtt_msg_set_connect_will_retain");
+    load_symbol(nng_.nng_mqtt_msg_set_connect_will_qos,
+                "nng_mqtt_msg_set_connect_will_qos");
+    load_symbol(nng_.nng_socket_set_ptr, "nng_socket_set_ptr");
+    load_symbol(nng_.nng_mqtt_alloc_sqlite_opt,
+                "nng_mqtt_alloc_sqlite_opt");
+    load_symbol(nng_.nng_mqtt_free_sqlite_opt,
+                "nng_mqtt_free_sqlite_opt");
+    load_symbol(nng_.nng_mqtt_set_sqlite_enable,
+                "nng_mqtt_set_sqlite_enable");
+    load_symbol(nng_.nng_mqtt_set_sqlite_flush_threshold,
+                "nng_mqtt_set_sqlite_flush_threshold");
+    load_symbol(nng_.nng_mqtt_set_sqlite_max_rows,
+                "nng_mqtt_set_sqlite_max_rows");
+    load_symbol(nng_.nng_mqtt_set_sqlite_db_dir,
+                "nng_mqtt_set_sqlite_db_dir");
+    load_symbol(nng_.nng_mqtt_sqlite_db_init,
+                "nng_mqtt_sqlite_db_init");
+
+    if (!ok) {
+      RCLCPP_ERROR(get_logger(),
+                   "NanoSDK/NNG library does not expose required MQTT QUIC symbols");
+      dlclose(nng_.handle);
+      nng_ = NngQuicApi{};
+      return false;
+    }
+    return true;
+  }
+
+  void MqttClient::setupQuicPersistentBuffer() {
+
+    if (!client_config_.buffer.enabled) return;
+
+    const bool sqlite_available =
+      nng_.nng_socket_set_ptr && nng_.nng_mqtt_alloc_sqlite_opt &&
+      nng_.nng_mqtt_set_sqlite_enable && nng_.nng_mqtt_set_sqlite_db_dir &&
+      nng_.nng_mqtt_set_sqlite_max_rows &&
+      nng_.nng_mqtt_set_sqlite_flush_threshold &&
+      nng_.nng_mqtt_sqlite_db_init;
+    if (!sqlite_available) {
+      RCLCPP_WARN(get_logger(),
+                  "NanoSDK SQLite buffer symbols are unavailable; QUIC publish "
+                  "buffer is disabled");
+      return;
+    }
+
+    int rv = nng_.nng_mqtt_alloc_sqlite_opt(&quic_sqlite_option_);
+    if (rv != 0 || !quic_sqlite_option_) {
+      RCLCPP_WARN(get_logger(), "NanoSDK SQLite buffer allocation failed: %s",
+                  nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown");
+      return;
+    }
+    nng_.nng_mqtt_set_sqlite_enable(quic_sqlite_option_, true);
+    nng_.nng_mqtt_set_sqlite_flush_threshold(quic_sqlite_option_, 10);
+    nng_.nng_mqtt_set_sqlite_max_rows(
+      quic_sqlite_option_, static_cast<size_t>(client_config_.buffer.size));
+    const auto buffer_dir = client_config_.buffer.directory.string();
+    nng_.nng_mqtt_set_sqlite_db_dir(quic_sqlite_option_, buffer_dir.c_str());
+    nng_.nng_mqtt_sqlite_db_init(quic_sqlite_option_,
+                                 "mqtt_quic_client.db",
+                                 kMqttProtocolVersionV311);
+    rv = nng_.nng_socket_set_ptr(
+      quic_socket_, kNngMqttSqliteOption, quic_sqlite_option_);
+    if (rv != 0) {
+      RCLCPP_WARN(get_logger(), "NanoSDK SQLite buffer setup failed: %s",
+                  nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown");
+    }
+  }
+
+  void MqttClient::setupQuicClient() {
+
+    if (!loadNngQuicApi()) {
+      RCLCPP_ERROR(get_logger(),
+                   "QUIC transport requested but NanoSDK/NNG is unavailable");
+      exit(EXIT_FAILURE);
+    }
+
+    quic_uri_ = fmt::format("mqtt-quic://{}:{}", broker_config_.host,
+                            broker_config_.port);
+    NngConfQuic conf;
+    conf.tls.enable = broker_config_.quic.tls_enabled;
+    conf.tls.cafile = broker_config_.quic.ca_certificate.empty()
+                        ? nullptr
+                        : const_cast<char*>(broker_config_.quic.ca_certificate.c_str());
+    conf.tls.certfile = broker_config_.quic.certificate.empty()
+                          ? nullptr
+                          : const_cast<char*>(broker_config_.quic.certificate.c_str());
+    conf.tls.keyfile = broker_config_.quic.key.empty()
+                         ? nullptr
+                         : const_cast<char*>(broker_config_.quic.key.c_str());
+    conf.tls.key_password = broker_config_.quic.key_password.empty()
+                              ? nullptr
+                              : const_cast<char*>(broker_config_.quic.key_password.c_str());
+    conf.tls.verify_peer = broker_config_.quic.verify_peer;
+    conf.tls.set_fail = broker_config_.quic.fail_if_no_peer_cert;
+    conf.qos_first = broker_config_.quic.qos_first;
+    conf.multi_stream = broker_config_.quic.multi_stream;
+    conf.qkeepalive = static_cast<uint64_t>(
+      std::max(1, broker_config_.quic.keep_alive_sec));
+    conf.qconnect_timeout = static_cast<uint64_t>(
+      std::max(1, broker_config_.quic.connect_timeout_sec));
+    conf.qdiscon_timeout = static_cast<uint32_t>(
+      std::max(1, broker_config_.quic.disconnect_timeout_sec));
+    conf.qidle_timeout = static_cast<uint32_t>(
+      std::max(1, broker_config_.quic.idle_timeout_sec));
+    conf.qcongestion_control = static_cast<uint8_t>(
+      std::max(0, broker_config_.quic.congestion_control));
+
+    int rv = nng_.nng_mqtt_quic_client_open_conf(
+      &quic_socket_, quic_uri_.c_str(), &conf);
+    if (rv != 0) {
+      RCLCPP_ERROR(get_logger(), "NanoSDK QUIC client open failed for '%s': %s",
+                   quic_uri_.c_str(),
+                   nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown");
+      exit(EXIT_FAILURE);
+    }
+    quic_socket_opened_ = true;
+
+    rv = nng_.nng_socket_set_ms(
+      quic_socket_, kNngOptSendTimeout,
+      static_cast<int32_t>(std::max(1, broker_config_.quic.send_timeout_ms)));
+    if (rv != 0) {
+      RCLCPP_WARN(get_logger(), "NanoSDK QUIC send timeout setup failed: %s",
+                  nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown");
+    }
+
+    setupQuicPersistentBuffer();
+    nng_.nng_mqtt_quic_set_connect_cb(
+      &quic_socket_, &MqttClient::quicConnectCallback, this);
+    nng_.nng_mqtt_quic_set_disconnect_cb(
+      &quic_socket_, &MqttClient::quicDisconnectCallback, this);
+    nng_.nng_mqtt_quic_set_msg_recv_cb(
+      &quic_socket_, &MqttClient::quicMessageCallback, this);
+  }
+
   void MqttClient::setupClient() {
+
+    if (usingQuicTransport()) {
+      setupQuicClient();
+      return;
+    }
 
     // basic client connection options
     connect_options_.set_automatic_reconnect(true);
@@ -1760,7 +2162,13 @@ bool primitiveRosMessageToString(
     }
 
     // create MQTT client
-    const std::string protocol = broker_config_.tls.enabled ? "ssl" : "tcp";
+    if (broker_config_.transport != "tcp" && broker_config_.transport != "ssl") {
+      RCLCPP_ERROR(get_logger(), "Unsupported MQTT transport '%s'",
+                   broker_config_.transport.c_str());
+      exit(EXIT_FAILURE);
+    }
+    const std::string protocol =
+      broker_config_.transport == "ssl" ? "ssl" : "tcp";
     const std::string uri = fmt::format(
       "{}://{}:{}", protocol, broker_config_.host, broker_config_.port);
     try {
@@ -1786,6 +2194,132 @@ bool primitiveRosMessageToString(
     client_->set_callback(*this);
   }
 
+  bool MqttClient::connectQuic() {
+
+    NngMsg* msg = nullptr;
+    int rv = nng_.nng_mqtt_msg_alloc(&msg, 0);
+    if (rv != 0 || !msg) {
+      RCLCPP_WARN(get_logger(), "NanoSDK CONNECT allocation failed: %s",
+                  nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown");
+      if (msg) nng_.nng_msg_free(msg);
+      return false;
+    }
+
+    nng_.nng_mqtt_msg_set_packet_type(msg, kNngMqttConnect);
+    nng_.nng_mqtt_msg_set_connect_proto_version(msg, kMqttProtocolVersionV311);
+    nng_.nng_mqtt_msg_set_connect_keep_alive(
+      msg, static_cast<uint16_t>(std::max(1.0, client_config_.keep_alive_interval)));
+    nng_.nng_mqtt_msg_set_connect_clean_session(
+      msg, client_config_.clean_session);
+    if (!client_config_.id.empty()) {
+      nng_.nng_mqtt_msg_set_connect_client_id(msg, client_config_.id.c_str());
+    }
+    if (!broker_config_.user.empty() &&
+        nng_.nng_mqtt_msg_set_connect_user_name &&
+        nng_.nng_mqtt_msg_set_connect_password) {
+      nng_.nng_mqtt_msg_set_connect_user_name(msg, broker_config_.user.c_str());
+      nng_.nng_mqtt_msg_set_connect_password(msg, broker_config_.pass.c_str());
+    }
+    if (!client_config_.last_will.topic.empty() &&
+        nng_.nng_mqtt_msg_set_connect_will_topic &&
+        nng_.nng_mqtt_msg_set_connect_will_msg &&
+        nng_.nng_mqtt_msg_set_connect_will_qos &&
+        nng_.nng_mqtt_msg_set_connect_will_retain) {
+      nng_.nng_mqtt_msg_set_connect_will_topic(
+        msg, client_config_.last_will.topic.c_str());
+      auto will_payload =
+        reinterpret_cast<uint8_t*>(client_config_.last_will.message.data());
+      nng_.nng_mqtt_msg_set_connect_will_msg(
+        msg, will_payload,
+        static_cast<uint32_t>(client_config_.last_will.message.size()));
+      nng_.nng_mqtt_msg_set_connect_will_qos(
+        msg, static_cast<uint8_t>(client_config_.last_will.qos));
+      nng_.nng_mqtt_msg_set_connect_will_retain(
+        msg, client_config_.last_will.retained);
+    }
+
+    rv = nng_.nng_sendmsg(quic_socket_, msg, kNngSendFlags);
+    if (rv != 0) {
+      nng_.nng_msg_free(msg);
+      RCLCPP_WARN(get_logger(), "NanoSDK QUIC CONNECT send failed: %s",
+                  nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown");
+      return false;
+    }
+    return true;
+  }
+
+  void MqttClient::publishMqtt(const std::string& topic, const void* payload,
+                               size_t payload_size, int qos, bool retained) {
+
+    if (!usingQuicTransport()) {
+      mqtt::message_ptr mqtt_msg = mqtt::make_message(
+        topic, payload, payload_size, qos, retained);
+      client_->publish(mqtt_msg);
+      return;
+    }
+
+    NngMsg* msg = nullptr;
+    int rv = nng_.nng_mqtt_msg_alloc(&msg, 0);
+    if (rv != 0 || !msg) {
+      throw std::runtime_error(fmt::format(
+        "NanoSDK PUBLISH allocation failed: {}",
+        nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown"));
+    }
+    nng_.nng_mqtt_msg_set_packet_type(msg, kNngMqttPublish);
+    nng_.nng_mqtt_msg_set_publish_dup(msg, false);
+    nng_.nng_mqtt_msg_set_publish_qos(msg, static_cast<uint8_t>(qos));
+    nng_.nng_mqtt_msg_set_publish_retain(msg, retained);
+    rv = nng_.nng_mqtt_msg_set_publish_topic(msg, topic.c_str());
+    if (rv != 0) {
+      nng_.nng_msg_free(msg);
+      throw std::runtime_error(fmt::format(
+        "NanoSDK PUBLISH topic setup failed for '{}'", topic));
+    }
+    nng_.nng_mqtt_msg_set_publish_payload(
+      msg, const_cast<uint8_t*>(static_cast<const uint8_t*>(payload)),
+      static_cast<uint32_t>(payload_size));
+    rv = nng_.nng_sendmsg(quic_socket_, msg, kNngSendFlags);
+    if (rv != 0) {
+      nng_.nng_msg_free(msg);
+      setMqttConnected(false);
+      throw std::runtime_error(fmt::format(
+        "NanoSDK QUIC PUBLISH send failed for '{}': {}", topic,
+        nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown"));
+    }
+  }
+
+  void MqttClient::subscribeMqtt(const std::string& topic, int qos) {
+
+    if (!usingQuicTransport()) {
+      client_->subscribe(topic, qos);
+      return;
+    }
+
+    NngMqttTopicQos subscription;
+    subscription.topic.length = static_cast<uint32_t>(topic.size());
+    subscription.topic.buf =
+      reinterpret_cast<uint8_t*>(const_cast<char*>(topic.data()));
+    subscription.qos = static_cast<uint8_t>(qos);
+
+    NngMsg* msg = nullptr;
+    int rv = nng_.nng_mqtt_msg_alloc(&msg, 0);
+    if (rv != 0 || !msg) {
+      throw std::runtime_error(fmt::format(
+        "NanoSDK SUBSCRIBE allocation failed: {}",
+        nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown"));
+    }
+    nng_.nng_mqtt_msg_set_packet_type(msg, kNngMqttSubscribe);
+    nng_.nng_mqtt_msg_set_subscribe_topics(msg, &subscription, 1);
+    rv = nng_.nng_sendmsg(quic_socket_, msg, kNngSendFlags);
+    if (rv != 0) {
+      nng_.nng_msg_free(msg);
+      setMqttConnected(false);
+      throw std::runtime_error(fmt::format(
+        "NanoSDK QUIC SUBSCRIBE send failed for '{}': {}", topic,
+        nng_.nng_strerror ? nng_.nng_strerror(rv) : "unknown"));
+    }
+  }
+
 
   void MqttClient::connect() {
 
@@ -1794,7 +2328,13 @@ bool primitiveRosMessageToString(
         ? ""
         : std::string(" as '") + client_config_.id + std::string("'");
     printf( "Connecting to broker at '%s'%s ...",
-                client_->get_server_uri().c_str(), as_client.c_str());
+                mqttServerUri().c_str(), as_client.c_str());
+
+    if (usingQuicTransport()) {
+      if (!connectQuic())
+        markMqttUnhealthy("quic connect failed");
+      return;
+    }
 
     try {
       client_->connect(connect_options_, nullptr, *this);
@@ -1818,11 +2358,19 @@ bool primitiveRosMessageToString(
   }
 
 
+  void MqttClient::setMqttConnected(const bool connected) {
+
+    std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
+    is_connected_ = connected;
+  }
+
+
   void MqttClient::clearMqttUnhealthy() {
 
     std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
     mqtt_unhealthy_since_.reset();
     mqtt_unhealthy_reason_.clear();
+    last_quic_reconnect_attempt_.reset();
   }
 
 
@@ -1837,6 +2385,7 @@ bool primitiveRosMessageToString(
 
   size_t MqttClient::pendingDeliveryTokenCount() const {
 
+    if (usingQuicTransport()) return 0;
     if (!client_) return 0;
 
     try {
@@ -1860,8 +2409,28 @@ bool primitiveRosMessageToString(
 
     if (!unhealthy_since) return;
 
-    const auto elapsed = std::chrono::steady_clock::now() - *unhealthy_since;
-    if (elapsed < kMqttRecoveryTimeout) return;
+    const auto now = std::chrono::steady_clock::now();
+    const auto elapsed = now - *unhealthy_since;
+    if (elapsed < kMqttRecoveryTimeout) {
+      if (usingQuicTransport()) {
+        bool should_reconnect = false;
+        {
+          std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
+          should_reconnect =
+            !last_quic_reconnect_attempt_ ||
+            now - *last_quic_reconnect_attempt_ >= kMqttQuicReconnectPeriod;
+          if (should_reconnect) last_quic_reconnect_attempt_ = now;
+        }
+        if (should_reconnect) {
+          RCLCPP_WARN(get_logger(),
+                      "MQTT QUIC transport is unhealthy (reason='%s'); "
+                      "retrying CONNECT before watchdog timeout",
+                      unhealthy_reason.c_str());
+          connect();
+        }
+      }
+      return;
+    }
 
     const auto elapsed_sec =
       std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
@@ -1934,10 +2503,8 @@ bool primitiveRosMessageToString(
           get_logger(),
           "Sending ROS message type to MQTT broker on topic '%s' ...",
           mqtt_topic.c_str());
-        mqtt::message_ptr mqtt_msg =
-          mqtt::make_message(mqtt_topic, msg_type_buffer.data(),
-                             msg_type_buffer.size(), ros2mqtt.mqtt.qos, true);
-        client_->publish(mqtt_msg);
+        publishMqtt(mqtt_topic, msg_type_buffer.data(),
+                    msg_type_buffer.size(), ros2mqtt.mqtt.qos, true);
         clearMqttUnhealthy();
       } catch (const mqtt::exception& e) {
         const auto pending_delivery_tokens = pendingDeliveryTokenCount();
@@ -1947,13 +2514,23 @@ bool primitiveRosMessageToString(
                     "pending_delivery_tokens=%zu: %s",
                     mqtt_topic.c_str(), e.get_return_code(),
                     e.get_reason_code(),
-                    client_ && client_->is_connected() ? "true" : "false",
+                    isMqttTransportConnected() ? "true" : "false",
                     pending_delivery_tokens, e.what());
         if (shouldWatchdogMqttRc(e.get_return_code())) {
           markMqttUnhealthy(fmt::format(
             "type publish failed on {} with rc={}", mqtt_topic,
             e.get_return_code()));
         }
+      } catch (const std::exception& e) {
+        RCLCPP_WARN(
+          get_logger(),
+          "Publishing ROS message type information to MQTT topic '%s' failed: "
+          "is_connected=%s pending_delivery_tokens=%zu: %s",
+          mqtt_topic.c_str(),
+          isMqttTransportConnected() ? "true" : "false",
+          pendingDeliveryTokenCount(), e.what());
+        markMqttUnhealthy(fmt::format(
+          "type publish failed on {}", mqtt_topic));
       }
 
       // build MQTT payload for ROS message (R) as [R]
@@ -2026,10 +2603,8 @@ bool primitiveRosMessageToString(
         get_logger(),
         "Sending ROS message of type '%s' to MQTT broker on topic '%s' ...",
         ros_msg_type.name.c_str(), mqtt_topic.c_str());
-      mqtt::message_ptr mqtt_msg = mqtt::make_message(
-        mqtt_topic, payload_buffer.data(), payload_buffer.size(),
-        ros2mqtt.mqtt.qos, ros2mqtt.mqtt.retained);
-      client_->publish(mqtt_msg);
+      publishMqtt(mqtt_topic, payload_buffer.data(), payload_buffer.size(),
+                  ros2mqtt.mqtt.qos, ros2mqtt.mqtt.retained);
       clearMqttUnhealthy();
     } catch (const mqtt::exception& e) {
       const auto pending_delivery_tokens = pendingDeliveryTokenCount();
@@ -2038,13 +2613,22 @@ bool primitiveRosMessageToString(
         "Publishing ROS message to MQTT topic '%s' failed: rc=%d reason=%d "
         "is_connected=%s pending_delivery_tokens=%zu: %s",
         mqtt_topic.c_str(), e.get_return_code(), e.get_reason_code(),
-        client_ && client_->is_connected() ? "true" : "false",
+        isMqttTransportConnected() ? "true" : "false",
         pending_delivery_tokens, e.what());
       if (shouldWatchdogMqttRc(e.get_return_code())) {
         markMqttUnhealthy(fmt::format(
           "data publish failed on {} with rc={}", mqtt_topic,
           e.get_return_code()));
       }
+    } catch (const std::exception& e) {
+      RCLCPP_WARN(
+        get_logger(),
+        "Publishing ROS message to MQTT topic '%s' failed: is_connected=%s "
+        "pending_delivery_tokens=%zu: %s",
+        mqtt_topic.c_str(),
+        isMqttTransportConnected() ? "true" : "false",
+        pendingDeliveryTokenCount(), e.what());
+      markMqttUnhealthy(fmt::format("data publish failed on {}", mqtt_topic));
     }
   }
 
@@ -2269,28 +2853,21 @@ bool primitiveRosMessageToString(
   }
 
 
-  void MqttClient::connected(const std::string& cause) {
+  void MqttClient::handleMqttConnected() {
 
-    (void)cause;  // Avoid compiler warning for unused parameter.
-
-    {
-      std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
-      is_connected_ = true;
-    }
-    clearMqttUnhealthy();
     std::string as_client =
       client_config_.id.empty()
         ? ""
         : std::string(" as '") + client_config_.id + std::string("'");
     printf( "Connected to broker at '%s'%s",
-                client_->get_server_uri().c_str(), as_client.c_str());
+                mqttServerUri().c_str(), as_client.c_str());
 
     // subscribe MQTT topics
     for (const auto& [mqtt_topic, mqtt2ros] : mqtt2ros_) {
       if (!mqtt2ros.primitive) {
         std::string const mqtt_topic_to_subscribe =
           kRosMsgTypeMqttTopicPrefix + mqtt_topic;
-        client_->subscribe(mqtt_topic_to_subscribe, mqtt2ros.mqtt.qos);
+        subscribeMqtt(mqtt_topic_to_subscribe, mqtt2ros.mqtt.qos);
         printf( "Subscribed MQTT topic '%s'",
                     mqtt_topic_to_subscribe.c_str());
       }
@@ -2298,30 +2875,160 @@ bool primitiveRosMessageToString(
       // public. In that case wait for the type to come in before subscribing to
       // the data topic
       if (mqtt2ros.primitive || mqtt2ros.fixed_type) {
-        client_->subscribe(mqtt_topic, mqtt2ros.mqtt.qos);
+        subscribeMqtt(mqtt_topic, mqtt2ros.mqtt.qos);
         printf( "Subscribed MQTT topic '%s'",
                     mqtt_topic.c_str());
       }
     }
+    setMqttConnected(true);
+    clearMqttUnhealthy();
+  }
+
+
+  void MqttClient::connected(const std::string& cause) {
+
+    (void)cause;  // Avoid compiler warning for unused parameter.
+
+    try {
+      handleMqttConnected();
+    } catch (const std::exception& e) {
+      setMqttConnected(false);
+      RCLCPP_WARN(get_logger(), "MQTT connected callback failed: %s", e.what());
+      markMqttUnhealthy(fmt::format("connected callback failed: {}", e.what()));
+    } catch (...) {
+      setMqttConnected(false);
+      RCLCPP_WARN(get_logger(),
+                  "MQTT connected callback failed with unknown exception");
+      markMqttUnhealthy("connected callback failed");
+    }
+  }
+
+
+  void MqttClient::handleMqttDisconnected(const std::string& cause,
+                                          bool request_reconnect) {
+
+    (void)cause;  // Avoid compiler warning for unused parameter.
+
+    RCLCPP_ERROR(get_logger(), "%s",
+                 request_reconnect
+                   ? "Connection to broker lost, will try to reconnect..."
+                   : "Connection to broker lost.");
+#ifdef HAVE_TRIORB_INTERFACE
+    std_msgs::msg::String _msg; _msg.data = "mqtt_client / Connection to broker lost";
+    this->pub_except_error_str_add_->publish(_msg);
+#endif // HAVE_TRIORB_INTERFACE
+    setMqttConnected(false);
+    markMqttUnhealthy("connection_lost callback");
+    if (request_reconnect && !usingQuicTransport()) connect();
   }
 
 
   void MqttClient::connection_lost(const std::string& cause) {
 
-    (void)cause;  // Avoid compiler warning for unused parameter.
+    handleMqttDisconnected(cause, true);
+  }
 
-    RCLCPP_ERROR(get_logger(),
-                 "Connection to broker lost, will try to reconnect...");
-#ifdef HAVE_TRIORB_INTERFACE
-    std_msgs::msg::String _msg; _msg.data = "mqtt_client / Connection to broker lost";
-    this->pub_except_error_str_add_->publish(_msg);
-#endif // HAVE_TRIORB_INTERFACE
-    {
-      std::lock_guard<std::mutex> lock(mqtt_health_mutex_);
-      is_connected_ = false;
+
+  int MqttClient::quicConnectCallback(void* rmsg, void* arg) {
+
+    auto* self = static_cast<MqttClient*>(arg);
+    struct ScopedNngMsg {
+      NngMsg* msg = nullptr;
+      void (*free_fn)(NngMsg*) = nullptr;
+      ~ScopedNngMsg() {
+        if (msg && free_fn) free_fn(msg);
+      }
+    } scoped_msg{static_cast<NngMsg*>(rmsg), self->nng_.nng_msg_free};
+
+    try {
+      self->handleMqttConnected();
+    } catch (const std::exception& e) {
+      self->setMqttConnected(false);
+      RCLCPP_WARN(self->get_logger(), "NanoSDK QUIC connect callback failed: %s",
+                  e.what());
+      self->markMqttUnhealthy(
+        fmt::format("quic connect callback failed: {}", e.what()));
+    } catch (...) {
+      self->setMqttConnected(false);
+      RCLCPP_WARN(self->get_logger(),
+                  "NanoSDK QUIC connect callback failed with unknown exception");
+      self->markMqttUnhealthy("quic connect callback failed");
     }
-    markMqttUnhealthy("connection_lost callback");
-    connect();
+    return 0;
+  }
+
+
+  int MqttClient::quicDisconnectCallback(void* rmsg, void* arg) {
+
+    auto* self = static_cast<MqttClient*>(arg);
+    struct ScopedNngMsg {
+      NngMsg* msg = nullptr;
+      void (*free_fn)(NngMsg*) = nullptr;
+      ~ScopedNngMsg() {
+        if (msg && free_fn) free_fn(msg);
+      }
+    } scoped_msg{static_cast<NngMsg*>(rmsg), self->nng_.nng_msg_free};
+
+    try {
+      self->handleMqttDisconnected("quic disconnect", true);
+    } catch (const std::exception& e) {
+      self->setMqttConnected(false);
+      RCLCPP_WARN(self->get_logger(),
+                  "NanoSDK QUIC disconnect callback failed: %s", e.what());
+      self->markMqttUnhealthy(
+        fmt::format("quic disconnect callback failed: {}", e.what()));
+    } catch (...) {
+      self->setMqttConnected(false);
+      RCLCPP_WARN(
+        self->get_logger(),
+        "NanoSDK QUIC disconnect callback failed with unknown exception");
+      self->markMqttUnhealthy("quic disconnect callback failed");
+    }
+    return 0;
+  }
+
+
+  int MqttClient::quicMessageCallback(void* rmsg, void* arg) {
+
+    auto* self = static_cast<MqttClient*>(arg);
+    try {
+      self->handleQuicMessage(rmsg);
+    } catch (const std::exception& e) {
+      RCLCPP_WARN(self->get_logger(), "NanoSDK QUIC message callback failed: %s",
+                  e.what());
+      self->markMqttUnhealthy(
+        fmt::format("quic message callback failed: {}", e.what()));
+    } catch (...) {
+      RCLCPP_WARN(self->get_logger(),
+                  "NanoSDK QUIC message callback failed with unknown exception");
+      self->markMqttUnhealthy("quic message callback failed");
+    }
+    return 0;
+  }
+
+
+  void MqttClient::handleQuicMessage(void* rmsg) {
+
+    struct ScopedNngMsg {
+      NngMsg* msg = nullptr;
+      void (*free_fn)(NngMsg*) = nullptr;
+      ~ScopedNngMsg() {
+        if (msg && free_fn) free_fn(msg);
+      }
+    } scoped_msg{static_cast<NngMsg*>(rmsg), nng_.nng_msg_free};
+    auto* msg = scoped_msg.msg;
+    if (!msg) return;
+
+    uint32_t topic_size = 0;
+    uint32_t payload_size = 0;
+    const char* topic = nng_.nng_mqtt_msg_get_publish_topic(msg, &topic_size);
+    uint8_t* payload =
+      nng_.nng_mqtt_msg_get_publish_payload(msg, &payload_size);
+    if (topic && payload) {
+      auto mqtt_msg = mqtt::make_message(
+        std::string(topic, topic_size), payload, payload_size);
+      message_arrived(mqtt_msg);
+    }
   }
 
 
@@ -2408,7 +3115,7 @@ bool primitiveRosMessageToString(
     if (!mqtt2ros.primitive)
       mqtt_topic_to_subscribe =
         kRosMsgTypeMqttTopicPrefix + request->mqtt_topic;
-    client_->subscribe(mqtt_topic_to_subscribe, mqtt2ros.mqtt.qos);
+    subscribeMqtt(mqtt_topic_to_subscribe, mqtt2ros.mqtt.qos);
     printf( "Subscribed MQTT topic '%s'",
                 mqtt_topic_to_subscribe.c_str());
 
@@ -2508,7 +3215,7 @@ bool primitiveRosMessageToString(
         if (!mqtt2ros.primitive) {
           std::string const mqtt_topic_to_subscribe =
             kRosMsgTypeMqttTopicPrefix + msg->mqtt_topic;
-          client_->subscribe(mqtt_topic_to_subscribe, mqtt2ros.mqtt.qos);
+          subscribeMqtt(mqtt_topic_to_subscribe, mqtt2ros.mqtt.qos);
           printf( "Subscribed MQTT topic '%s'",
                       mqtt_topic_to_subscribe.c_str());
         }
@@ -2516,7 +3223,7 @@ bool primitiveRosMessageToString(
         // public. In that case wait for the type to come in before subscribing to
         // the data topic
         if (mqtt2ros.primitive || mqtt2ros.fixed_type) {
-          client_->subscribe(msg->mqtt_topic, mqtt2ros.mqtt.qos);
+          subscribeMqtt(msg->mqtt_topic, mqtt2ros.mqtt.qos);
           printf( "Subscribed MQTT topic '%s'",
                       msg->mqtt_topic.c_str());
         }
@@ -2661,7 +3368,7 @@ bool primitiveRosMessageToString(
         mqtt2ros.ros.is_stale = false;
 
         // subscribe to MQTT topic with actual ROS messages
-        client_->subscribe(mqtt_data_topic, mqtt2ros.mqtt.qos);
+        subscribeMqtt(mqtt_data_topic, mqtt2ros.mqtt.qos);
         RCLCPP_DEBUG(get_logger(), "Subscribed MQTT topic '%s'",
                      mqtt_data_topic.c_str());
       }

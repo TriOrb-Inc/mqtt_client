@@ -45,6 +45,7 @@ if(${ROS_VERSION} EQUAL 2)
   target_link_libraries(${PROJECT_NAME}_lib
     ${PahoMqttC_LIBRARY}
     ${PahoMqttCpp_LIBRARY}
+    dl
     nlohmann_json::nlohmann_json
   )
   ament_target_dependencies(${PROJECT_NAME}_lib
